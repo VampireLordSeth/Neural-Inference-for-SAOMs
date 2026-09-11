@@ -1,0 +1,24 @@
+[project]
+name = "saomsim"
+version = "0.1.0"
+description = "Batched simulator for stochastic actor-oriented models"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-xdist", "ruff"]
+torch = ["torch>=2.2"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["saomsim"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
