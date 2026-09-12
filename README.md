@@ -6,7 +6,9 @@ estimator, and a test suite that checks every vectorized kernel against a
 loop-based reference and the ministep dynamics against an exact Markov chain.
 
 Milestone M0 of the amortized neural inference project. See
-[GETTING_STARTED.md](GETTING_STARTED.md) for setup and the working order.
+[GETTING_STARTED.md](GETTING_STARTED.md) for setup and the working order, and
+[docs/PRIORS.md](docs/PRIORS.md) for the prior the first estimator is trained
+under (fixed empirical start `X0 = s501`; box prior; prior predictive check).
 
 ## What it does
 
@@ -66,6 +68,7 @@ X1, info = simulate_period(..., return_info=True)  # info.n_steps, info.n_change
 | `reference.py` | the same statistics as explicit loops on a single network. Slow. Sacred. |
 | `simulate.py` | `simulate_period`, `simulate_panel`, `random_network`, `rate_statistic`, `statistics` |
 | `estimate.py` | `estimate`: multi-panel method of moments (CRN Jacobian, scaled Gauss-Newton, trust region, sandwich s.e.). `estimate_rm`: RSiena-style Robbins-Monro from a single panel, conditional on the observed distance |
+| `prior.py` | `BoxPrior`, `summaries`, `generate_training_set`, `TrainingSet` (npz round trip), `prior_predictive_report`. The s50 prior itself lives in `benchmarks/s50.py` and is justified in `docs/PRIORS.md` |
 
 ## Model
 

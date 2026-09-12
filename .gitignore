@@ -6,3 +6,4 @@ __pycache__/
 *.egg-info/
 notebooks/*.ipynb_checkpoints/
 .venv-torch/
+benchmarks/*.npz

@@ -165,8 +165,8 @@ into NumPy's einsum call, not bounce off it.
 ## 4. Verify
 
 ```bash
-pytest -q -m "not slow"     # numpy-only env: 109 passed, 57 skipped (torch cases)
-pytest -q                   # with torch: 165 passed
+pytest -q -m "not slow"     # numpy-only env: 114 passed, 58 skipped (torch cases)
+pytest -q                   # with torch: 173 passed
 python examples/quickstart.py
 ```
 
@@ -292,9 +292,12 @@ bandwidth is modest, so treat it as a throughput box.
    (Also done 2026-09-11, from `legacy/v0`: `estimate_rm`, the RSiena-style
    single-panel Robbins-Monro baseline, conditional on observed distance; and
    the `n_steps=` / `distance=` stopping rules in `simulate_period`.)
-4. Prior specification: write down the ranges and the reasoning *before*
-   generating training data. This is a design decision with consequences for
-   where the estimator can be trusted, not an implementation detail.
+4. ~~Prior specification~~ Done 2026-09-11: `docs/PRIORS.md`. Decision:
+   fixed empirical start (`X0 = s501`, covariates fixed), independent uniform
+   box on (rate + 7 effects), prior predictive checked on 50k draws (observed
+   s502 between the 16th and 65th percentile on every summary; zero
+   degenerate panels). Code: `saomsim/prior.py`, `benchmarks/s50.py`,
+   `benchmarks/prior_predictive.py`.
 5. Generate the training set; attach a conditional normalizing flow via `sbi`.
 6. Simulation-based calibration.
 

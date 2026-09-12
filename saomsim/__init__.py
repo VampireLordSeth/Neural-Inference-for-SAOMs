@@ -3,6 +3,7 @@
 from .backend import get_backend
 from .effects import COVARIATE, KINDS, STRUCTURAL, Effect, Model
 from .estimate import EstimateResult, estimate, estimate_rm, moments
+from .prior import BoxPrior, TrainingSet, generate_training_set, summaries
 from .simulate import (
     SimulationInfo,
     random_network,
@@ -15,6 +16,10 @@ from .simulate import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "BoxPrior",
+    "TrainingSet",
+    "generate_training_set",
+    "summaries",
     "COVARIATE",
     "KINDS",
     "STRUCTURAL",
