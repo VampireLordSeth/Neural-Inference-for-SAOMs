@@ -156,7 +156,7 @@ whether architecture fixes cycle3 cheaply. It does not; data does.
 | A | 1024 | NSF 6 × 100 | 205 | −0.844 | density (0.003) |
 | B | 4096 | NSF 8 × 100 | 222 | −0.490 | rate (0.001), density (0.019), transTrip (0.028), cycle3 (0.005) |
 | C | 4096 | NSF 10 × 128, lr 3e-4 | 301 (cap) | −0.513 | density (0.004), cycle3 (0.023) |
-| D | 4096 | MAF 8 × 100 | 301 (cap) | −0.153 | density (0.001), transTrip (0.005) |
+| D | 4096 | MAF 8 × 100 | 301 (cap) | −0.153 | density (0.001), transTrip (0.005), cycle3 (<0.001) |
 
 - Ten times more data moved the validation loss from −0.84 to −1.32 and
   cleared every parameter but cycle3. No architecture change at 10⁵ came
