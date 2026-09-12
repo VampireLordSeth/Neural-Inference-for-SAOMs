@@ -94,6 +94,57 @@ departure). Candidate causes, in the order to try:
    near 0.05; nothing indicates edge effects for the observed data, but the
    SBC draws span the whole box.
 
+## Coverage of central credible intervals (same held-out draws)
+
+`python benchmarks/coverage.py data/npe_s50_sbc.npz`
+
+| parameter | 50 % | 80 % | 90 % | 95 % |
+|---|---|---|---|---|
+| rate | 0.527 | 0.822 | 0.910 | 0.958 |
+| density | 0.479 | 0.783 | 0.893 | 0.945 |
+| recip | 0.507 | 0.797 | 0.902 | 0.955 |
+| transTrip | 0.482 | 0.780 | 0.892 | 0.935 |
+| cycle3 | 0.494 | 0.792 | 0.890 | 0.944 |
+| altX(alc) | 0.490 | 0.791 | 0.893 | 0.940 |
+| egoX(alc) | 0.523 | 0.798 | 0.899 | 0.940 |
+| sameX(smk) | 0.522 | 0.826 | 0.901 | 0.951 |
+| binomial s.e. | 0.016 | 0.013 | 0.009 | 0.007 |
+
+Empirical coverage is nominal within ~2 s.e. for every parameter at every
+level — including cycle3. So cycle3's SBC signal is a small *location* shift
+(posterior slightly high), not intervals that are too narrow; and the
+tighter-than-RSiena sd for transTrip/cycle3 is not over-confidence at the
+interval level. transTrip's 95 % at 0.935 is the only value 2 s.e. low.
+
+## Posterior predictive check on statistics outside the embedding
+
+`python benchmarks/ppc_s50.py --B 1000`: 1,000 posterior draws, one simulated
+period each from s501, compared with the observed s502 on statistics the
+flow never saw.
+
+| statistic | observed | pp mean ± sd | pp 90 % | F(obs) |
+|---|---|---|---|---|
+| mutual dyads | 35 | 38.8 ± 13.3 | [20, 64] | 0.43 |
+| asymmetric dyads | 46 | 46.8 ± 9.7 | [33, 64] | 0.49 |
+| null dyads | 1144 | 1139 ± 17 | [1109, 1165] | 0.57 |
+| max out-degree | 5 | 7.3 ± 1.9 | [5, 11] | 0.09 |
+| max in-degree | 6 | 7.5 ± 2.0 | [5, 11] | 0.25 |
+| in-degree Gini | 0.369 | 0.420 ± 0.052 | [0.34, 0.51] | 0.17 |
+| out-isolates | 3 | 6.9 ± 3.0 | [3, 12] | 0.08 |
+| transitivity | 0.373 | 0.347 ± 0.113 | [0.18, 0.54] | 0.60 |
+| fraction reachable | 0.360 | 0.555 ± 0.171 | [0.25, 0.81] | 0.15 |
+| mean geodesic | 4.49 | 4.09 ± 0.65 | [3.17, 5.22] | 0.78 |
+| degree assortativity | 0.094 | 0.184 ± 0.156 | [−0.07, 0.44] | 0.29 |
+
+Nothing outside the central 95 %. The mild tensions all point one way —
+fewer out-isolates, lower maximum out-degree, and less reachability than the
+fitted model predicts: s502's *activity* is more even across actors than a
+model with no out-degree activity/popularity effects can produce. That is a
+model-specification finding (add `outAct`/`inPop`-type effects), not an
+estimator finding, and it is exactly what RSiena's `sienaGOF` reports for
+this effect set. Useful for §4: the PPC diagnoses the model independently of
+how the posterior was obtained.
+
 ## Cost accounting
 
 | step | wall clock |
