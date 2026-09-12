@@ -308,7 +308,10 @@ bandwidth is modest, so treat it as a throughput box.
    `docs/PRIORS_M2.md` (population prior over X0, n ~ U{20..80}), code in
    `saomsim/population.py`, `benchmarks/{generate_m2,npe_m2,m2_prior_predictive}.py`.
    10⁶ population panels generated 2026-09-12 (9 min); s50 in-distribution on
-   all 29 summaries. Results in `docs/M2_RESULTS.md` when training completes.
+   all 29 summaries. Trained 2026-09-12 (`docs/M2_RESULTS.md`): RSiena's s50
+   estimates inside the M2 90% intervals on all 8 parameters from an estimator
+   that never saw s501; coverage nominal across n; ~0.1 sd bias on the
+   density–closure ridge. Next: 10⁷ panels + learned embedding.
 
 ## 8. Conventions worth keeping
 

@@ -70,9 +70,13 @@ def main():
     N = ts.theta.shape[0]
     x0, x1, v, g, s_obs, model = s50_as_m2()
     X = transform_m2(ts.summary, ts.summary_names, model)
-    n_train = N - args.sbc
-    theta_tr, x_tr = ts.theta[:n_train], X[:n_train]
-    theta_te, x_te, n_te = ts.theta[n_train:], X[n_train:], ts.n[n_train:]
+    # random hold-out: consecutive rows share one n (one n per chunk), so a tail
+    # split would test a single network size
+    perm = np.random.default_rng(args.seed).permutation(N)
+    te, tr = perm[: args.sbc], perm[args.sbc :]
+    n_train = tr.size
+    theta_tr, x_tr = ts.theta[tr], X[tr]
+    theta_te, x_te, n_te = ts.theta[te], X[te], ts.n[te]
     log(f"population set {args.data}: N={N}, train={n_train}, sbc={args.sbc}, device={device}")
     log(f"n in [{ts.n.min()}, {ts.n.max()}]; {len(ts.summary_names)} summaries")
     log(f"theta {ts.theta_names}")
