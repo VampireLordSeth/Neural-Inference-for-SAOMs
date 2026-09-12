@@ -149,3 +149,20 @@ def test_real_data_summary_matches_generated_layout():
     S, model = real_data_summary(x0, x1, v, g)
     assert S.shape == (1, 29) and model.labels == m2_model(sample_covariates(1, n, rng)).labels
     assert S[0, 0] == n and [e if isinstance(e, str) else e for e in M2_EFFECTS]
+
+
+def test_load_m2_summaries_concatenates_shards(tmp_path):
+    from saomsim.population import load_m2_summaries
+
+    model = m2_model(sample_covariates(1, 20, np.random.default_rng(0)))
+    prior = prior_for(model)
+    for i in range(3):
+        ts = generate_m2(
+            prior, 10, np.random.default_rng(i), n_range=(20, 22), chunk=5, keep_networks=(i == 0)
+        )
+        ts.save(tmp_path / f"shard_{i}.npz")
+    big = load_m2_summaries(str(tmp_path / "shard_*.npz"))
+    assert big.theta.shape == (30, 8) and big.summary.shape == (30, 29) and big.n.shape == (30,)
+    assert big.X0 is None and big.meta["N"] == 30 and len(big.meta["files"]) == 3
+    one = load_m2_summaries(tmp_path / "shard_1.npz")
+    assert np.array_equal(one.theta, big.theta[10:20])

@@ -1,6 +1,6 @@
 """M2: neural posterior estimation over the population of starts, with SBC and the s50 test.
 
-  python benchmarks/npe_m2.py --data data/train_m2.npz [--limit N] [--sbc 2000] [--out data/npe_m2]
+  python benchmarks/npe_m2.py --data "data/m2_shards/*.npz" [--limit N] [--sbc 2000]
 
 1. load the population training set, transform the 29 summaries
 2. hold out the last ``--sbc`` draws; train an NSF q(theta | summaries) with sbi
@@ -23,12 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table  # noqa: E402
 from benchmarks.m2 import m2_prior, s50_as_m2  # noqa: E402
-from saomsim.population import M2TrainingSet, transform_m2  # noqa: E402
+from saomsim.population import load_m2_summaries, transform_m2  # noqa: E402
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="data/train_m2.npz")
+    ap.add_argument("--data", default="data/train_m2.npz", help="path or glob (shards)")
     ap.add_argument("--out", default="data/npe_m2")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--sbc", type=int, default=2000)
@@ -60,7 +60,7 @@ def main():
 
     # ---------------------------------------------------------------- data
     prior_box = m2_prior()
-    ts = M2TrainingSet.load(args.data)
+    ts = load_m2_summaries(args.data)
     if args.limit:
         ts.theta, ts.summary, ts.n = (
             ts.theta[: args.limit],

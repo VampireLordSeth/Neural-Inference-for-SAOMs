@@ -183,6 +183,46 @@ class M2TrainingSet:
             )
 
 
+def load_m2_summaries(paths) -> M2TrainingSet:
+    """Concatenate theta / summary / n from several saved sets (networks left on disk)."""
+    import glob
+
+    files = []
+    for p in paths if isinstance(paths, (list, tuple)) else [paths]:
+        files.extend(sorted(glob.glob(str(p))) or [str(p)])
+    parts = []
+    for f in files:
+        with np.load(f, allow_pickle=False) as z:
+            parts.append(
+                (
+                    z["theta"],
+                    z["summary"],
+                    z["n"],
+                    [str(x) for x in z["theta_names"]],
+                    [str(x) for x in z["summary_names"]],
+                    str(z["meta"]),
+                )
+            )
+    names, snames = parts[0][3], parts[0][4]
+    for _, _, _, tn, sn, _ in parts:
+        if tn != names or sn != snames:
+            raise ValueError("shards have different theta/summary layouts")
+    import ast
+
+    return M2TrainingSet(
+        theta=np.concatenate([p[0] for p in parts]),
+        summary=np.concatenate([p[1] for p in parts]),
+        n=np.concatenate([p[2] for p in parts]),
+        theta_names=names,
+        summary_names=snames,
+        meta={
+            **ast.literal_eval(parts[0][5]),
+            "files": files,
+            "N": int(sum(len(p[2]) for p in parts)),
+        },
+    )
+
+
 def generate_m2(
     prior: BoxPrior,
     N: int,
