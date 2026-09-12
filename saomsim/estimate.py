@@ -214,3 +214,164 @@ def estimate(
         converged=converged,
         history=history,
     )
+
+
+# ---------------------------------------------------------------------------
+# Robbins-Monro estimation from a single panel (RSiena-style)
+# ---------------------------------------------------------------------------
+
+
+def estimate_rm(
+    x0: np.ndarray,
+    x1: np.ndarray,
+    model: Model,
+    rng: np.random.Generator,
+    *,
+    theta0=None,
+    rate: float | None = None,
+    n_sim_phase1: int = 200,
+    n_subphases: int = 4,
+    n_iter_per_subphase: int = 50,
+    n_sim_phase2: int = 32,
+    n_sim_phase3: int = 1000,
+    initial_gain: float = 0.2,
+    fd_step: float = 0.15,
+    ridge: float = 1e-6,
+    diagonalize: float = 0.2,
+    refresh_derivative: bool = True,
+    max_step: float = 0.5,
+    clip: float = 10.0,
+    tol: float = 0.1,
+    backend="numpy",
+    verbose: bool = False,
+) -> EstimateResult:
+    """Method of moments for **one** observed panel ``x0 -> x1`` by stochastic approximation.
+
+    The RSiena algorithm in outline (Snijders 2001), ported from ``legacy/v0``:
+
+    Phase 1  derivative matrix ``D = dE[s]/dtheta`` by central finite differences
+             with common random numbers, ``n_sim_phase1`` chains per side
+    Phase 2  ``n_subphases`` subphases of ``n_iter_per_subphase`` Robbins-Monro
+             steps ``theta <- theta - gain * D^-1 (s_sim - s_obs)``, each step
+             using ``n_sim_phase2`` fresh chains; the gain halves per subphase
+             and the subphase average becomes the next starting point
+    Phase 3  ``n_sim_phase3`` chains at the final theta for ``Cov(s)``, the
+             convergence t-ratios ``(mean_sim - s_obs) / sd_sim`` (RSiena's rule
+             of thumb: all below 0.1) and the standard errors
+             ``sqrt(diag(D^-1 Sigma D^-T))`` with ``D`` re-estimated at theta_hat
+
+    Two stabilisers. ``diagonalize`` (RSiena's default 0.2) uses
+    ``(1 - a) D + a diag(D)`` as the phase-2 preconditioner: the raw ``D`` is
+    ill-conditioned far from the solution (every statistic rises with every
+    parameter) and its inverse sends the iterate drifting along a near-null
+    direction. ``refresh_derivative`` re-estimates ``D`` at the start of each
+    subphase from the current iterate, which RSiena does not do but which is
+    cheap here because the finite differences use common random numbers.
+
+    Conditioning: by default simulations run until the Hamming distance from
+    ``x0`` reaches the observed distance (RSiena ``cond = TRUE``), so the rate
+    drops out and only the effect parameters are estimated. Pass ``rate=`` to
+    simulate unconditionally at that fixed rate instead.
+
+    This is the classical baseline for the amortized estimator: one panel in,
+    a point estimate and standard errors out.
+    """
+    x0 = np.asarray(x0)
+    x1 = np.asarray(x1)
+    if x0.shape != x1.shape or x0.ndim != 2:
+        raise ValueError("x0 and x1 must both be (n, n)")
+    n = x0.shape[0]
+    K = model.K
+    names = list(model.labels)
+    target = model.statistics(x1[None])[0]
+    dist = int((x0 != x1).sum())
+    stop = {"rate": rate} if rate is not None else {"distance": dist}
+
+    def simulate_stats(th: np.ndarray, B: int, seed: int) -> np.ndarray:
+        r = np.random.default_rng(seed)
+        X0 = np.repeat(x0[None], B, axis=0)
+        X1 = simulate_period(X0, th, model=model, rng=r, backend=backend, **stop)
+        return model.statistics(X1)
+
+    def derivative(th: np.ndarray, B: int) -> tuple[np.ndarray, np.ndarray]:
+        """Central-difference Jacobian with common random numbers, and the
+        per-chain sd of the statistics at ``th`` (for scale-aware inversion)."""
+        seed = int(rng.integers(0, 2**63 - 1))
+        D = np.empty((K, K))
+        for k in range(K):
+            tp, tm = th.copy(), th.copy()
+            tp[k] += fd_step
+            tm[k] -= fd_step
+            sp = simulate_stats(tp, B, seed).mean(axis=0)
+            sm = simulate_stats(tm, B, seed).mean(axis=0)
+            D[:, k] = (sp - sm) / (2 * fd_step)
+        sd = simulate_stats(th, B, seed).std(axis=0, ddof=1) + 1e-12
+        return D, sd
+
+    def scaled_inverse(D: np.ndarray, sd: np.ndarray, diag: float = 0.0) -> np.ndarray:
+        Dp = (1.0 - diag) * D + diag * np.diag(np.diag(D))
+        return ridge_pinv(Dp / sd[:, None], ridge) / sd[None, :]
+
+    # starting value: zeros, with the density effect at the logit of the observed density
+    if theta0 is None:
+        theta = np.zeros(K, dtype=DTYPE)
+        d = np.clip(x1.sum() / (n * (n - 1)), 1e-3, 1 - 1e-3)
+        for k, e in enumerate(model.effects):
+            if e.kind == "density":
+                theta[k] = np.log(d / (1 - d))
+    else:
+        theta = np.array(theta0, dtype=DTYPE)
+        if theta.shape != (K,):
+            raise ValueError(f"theta0 must have shape ({K},)")
+    history = [theta.copy()]
+
+    # ---- Phase 1
+    D, sd = derivative(theta, n_sim_phase1)
+    Dinv = scaled_inverse(D, sd, diagonalize)
+
+    # ---- Phase 2
+    gain = initial_gain
+    it = 0
+    for sub in range(n_subphases):
+        if sub > 0 and refresh_derivative:
+            D, sd = derivative(theta, n_sim_phase1)
+            Dinv = scaled_inverse(D, sd, diagonalize)
+        theta_sum = np.zeros(K)
+        for _ in range(n_iter_per_subphase):
+            s = simulate_stats(theta, n_sim_phase2, int(rng.integers(0, 2**63 - 1))).mean(axis=0)
+            step = gain * (Dinv @ (s - target))
+            biggest = np.abs(step).max()
+            if biggest > max_step:  # a single noisy draw must not throw the iterate
+                step *= max_step / biggest
+            theta = np.clip(theta - step, -clip, clip)
+            theta_sum += theta
+            it += 1
+        theta = theta_sum / n_iter_per_subphase
+        history.append(theta.copy())
+        gain /= 2.0
+        if verbose:
+            print(f"subphase {sub + 1}: theta = {np.round(theta, 3)}")
+
+    # ---- Phase 3
+    S = simulate_stats(theta, n_sim_phase3, int(rng.integers(0, 2**63 - 1)))
+    simulated = S.mean(axis=0)
+    stat_cov = np.atleast_2d(np.cov(S, rowvar=False))
+    sd = np.sqrt(np.diag(stat_cov)) + 1e-12
+    tratios = (simulated - target) / sd
+    D, _ = derivative(theta, n_sim_phase3 // 2 or 1)
+    Dinv = scaled_inverse(D, sd)
+    se = np.sqrt(np.clip(np.diag(Dinv @ stat_cov @ Dinv.T), 0, None))
+
+    return EstimateResult(
+        names=names,
+        theta=theta,
+        se=se,
+        targets=target,
+        simulated=simulated,
+        tratios=tratios,
+        jacobian=D,
+        stat_cov=stat_cov,
+        iterations=it,
+        converged=bool(np.all(np.abs(tratios) < tol)),
+        history=history,
+    )

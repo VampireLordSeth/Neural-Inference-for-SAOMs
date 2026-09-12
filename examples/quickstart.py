@@ -1,17 +1,20 @@
 """saomsim quickstart.
 
-Three things:
+Four things:
   1. more reciprocity parameter  -> more mutual dyads
   2. more homophily parameter    -> larger share of within-group ties
   3. method-of-moments recovery of a known parameter vector from a batch of
-     simulated panels, with standard errors
+     simulated panels (Gauss-Newton), with standard errors
+  4. the classical baseline: Robbins-Monro estimation from a *single* panel,
+     conditional on the observed distance, as RSiena does it
+  5. throughput, which sets the training-set budget
 """
 
 import time
 
 import numpy as np
 
-from saomsim import Model, estimate, random_network, simulate_period, statistics
+from saomsim import Model, estimate, estimate_rm, random_network, simulate_period, statistics
 
 rng = np.random.default_rng(20240911)
 n, B = 30, 1000
@@ -55,6 +58,24 @@ t0 = time.perf_counter()
 res = estimate(X0, X1, m, rng, n_sim=10, max_iter=25, fd_step=0.15)
 print(f"estimated in {time.perf_counter() - t0:.1f}s\n")
 print(res.table(truth))
+
+# --------------------------------------------------- 4. single-panel baseline
+print("\n== single-panel Robbins-Monro baseline  (n=30, conditional on distance) ==")
+m = Model(["density", "recip", "transTrip"])
+truth = np.array([-2.0, 1.6, 0.2])
+x0 = random_network(1, n, 0.09, rng)
+x1 = simulate_period(x0, truth, model=m, rng=rng, n_steps=180)[0]
+print(f"observed distance x0 -> x1: {int((x0[0] != x1).sum())}")
+t0 = time.perf_counter()
+res = estimate_rm(x0[0], x1, m, rng)
+if not res.converged:  # RSiena practice: rerun from the previous answer
+    res = estimate_rm(x0[0], x1, m, rng, theta0=res.theta)
+print(f"estimated in {time.perf_counter() - t0:.1f}s\n")
+print(res.table(truth))
+print(
+    "\nCompare the s.e. column with section 3: one panel carries roughly sqrt(200)"
+    "\ntimes less information than 200 of them. See README 'A result worth noticing'."
+)
 
 # ------------------------------------------------------------------- throughput
 print("\n== throughput (density+recip+transTrip, rate=3; see benchmarks/throughput.py) ==")

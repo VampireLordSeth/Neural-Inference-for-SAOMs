@@ -165,8 +165,8 @@ into NumPy's einsum call, not bounce off it.
 ## 4. Verify
 
 ```bash
-pytest -q -m "not slow"     # numpy-only env: 105 passed, 56 skipped (torch cases)
-pytest -q                   # with torch: 161 passed
+pytest -q -m "not slow"     # numpy-only env: 109 passed, 57 skipped (torch cases)
+pytest -q                   # with torch: 165 passed
 python examples/quickstart.py
 ```
 
@@ -289,6 +289,9 @@ bandwidth is modest, so treat it as a throughput box.
 3. Multi-wave support — `simulate_panel` runs consecutive periods and is
    tested for sequencing and per-period parameters; multi-wave *estimation*
    is not.
+   (Also done 2026-09-11, from `legacy/v0`: `estimate_rm`, the RSiena-style
+   single-panel Robbins-Monro baseline, conditional on observed distance; and
+   the `n_steps=` / `distance=` stopping rules in `simulate_period`.)
 4. Prior specification: write down the ranges and the reasoning *before*
    generating training data. This is a design decision with consequences for
    where the estimator can be trusted, not an implementation detail.

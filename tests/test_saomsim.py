@@ -16,6 +16,7 @@ from saomsim import (
     Effect,
     Model,
     estimate,
+    estimate_rm,
     moments,
     random_network,
     rate_statistic,
@@ -735,4 +736,73 @@ def test_estimate_recovers_parameters():
     res = estimate(X0, X1, m, rng, n_sim=20, max_iter=25, fd_step=0.15)
     z = (res.theta - truth) / res.se
     assert res.converged, res.table(truth)
+    assert np.all(np.abs(z) < 3.0), res.table(truth)
+
+
+def test_estimate_rm_runs_and_reports(backend):
+    """Small end-to-end run of the Robbins-Monro estimator: shapes, names, table,
+    conditional simulation used by default (rate absent from the names)."""
+    rng = np.random.default_rng(0)
+    n = 12
+    m = Model(["density", "recip"])
+    x0 = random_network(1, n, 0.2, rng)
+    x1 = simulate_period(x0, [-1.5, 1.0], model=m, rng=rng, n_steps=40)[0]
+    res = estimate_rm(
+        x0[0],
+        x1,
+        m,
+        rng,
+        n_sim_phase1=20,
+        n_subphases=2,
+        n_iter_per_subphase=5,
+        n_sim_phase2=4,
+        n_sim_phase3=40,
+        backend=backend,
+    )
+    assert res.names == ["density", "recip"]
+    assert res.theta.shape == res.se.shape == (2,) and np.all(np.isfinite(res.theta))
+    assert res.iterations == 10 and len(res.history) == 3
+    assert "density" in res.table() and "converged=" in res.table()
+    assert np.array_equal(res.targets, statistics(x1[None], m)[0])
+    with pytest.raises(ValueError):
+        estimate_rm(x0[0], x1, m, rng, theta0=[0.0], n_sim_phase1=2, n_sim_phase3=2)
+
+
+def test_estimate_rm_unconditional_uses_rate():
+    rng = np.random.default_rng(1)
+    n = 10
+    m = Model(["density"])
+    x0 = random_network(1, n, 0.3, rng)
+    x1 = simulate_period(x0, [-0.5], 2.0, m, rng)[0]
+    res = estimate_rm(
+        x0[0],
+        x1,
+        m,
+        rng,
+        rate=2.0,
+        n_sim_phase1=20,
+        n_subphases=2,
+        n_iter_per_subphase=5,
+        n_sim_phase2=4,
+        n_sim_phase3=40,
+    )
+    assert res.names == ["density"] and np.isfinite(res.theta[0])
+
+
+@pytest.mark.slow
+def test_estimate_rm_recovers_from_one_panel():
+    """Simulate one panel from known theta, estimate, check truth within 3 s.e.
+    and that the estimator converges by RSiena's rule (after at most one rerun
+    from the previous answer, which is RSiena practice too)."""
+    rng = np.random.default_rng(2024)
+    n = 30
+    m = Model(["density", "recip", "transTrip"])
+    truth = np.array([-2.0, 1.6, 0.2])
+    x0 = random_network(1, n, 0.09, rng)
+    x1 = simulate_period(x0, truth, model=m, rng=rng, n_steps=180)[0]
+    res = estimate_rm(x0[0], x1, m, rng)
+    if not res.converged:
+        res = estimate_rm(x0[0], x1, m, rng, theta0=res.theta)
+    assert res.converged, res.table(truth)
+    z = (res.theta - truth) / res.se
     assert np.all(np.abs(z) < 3.0), res.table(truth)

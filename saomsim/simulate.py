@@ -87,7 +87,9 @@ def _step_schedule(rate, n_steps, distance, B: int, n: int, rng, max_steps):
     if np.any(target < 0) or np.any(target > n * (n - 1)):
         raise ValueError("distance must lie in [0, n(n-1)]")
     if max_steps is None:
-        max_steps = int(50 * n + 20 * target.max())
+        # a chain that has not covered its distance in this many ministeps is stuck
+        # (e.g. the network emptied and the parameters will not re-create ties)
+        max_steps = int(10 * n + 5 * target.max())
     return np.full(B, max_steps, dtype=np.int64), target.copy()
 
 
@@ -142,10 +144,16 @@ def simulate_period(
         dist = bk.int_array(np.zeros(B, dtype=np.int64))
         stopped_at = bk.int_array(np.full(B, -1, dtype=np.int64))
 
+    # Early exit once no chain is active. For torch this is a device sync, so
+    # check only every few steps; the draws are deterministic given the seed
+    # either way, so stopping early does not affect reproducibility.
+    check_every = 1 if bk.name == "numpy" else 8
     for t in range(int(steps_np.max()) if B else 0):
         active = t < steps
         if conditional:
             active = active & (dist < target)
+        if t % check_every == 0 and not bool(active.any()):
+            break
         actor = bk.integers(n, B, state)
         u = bk.random(B, state)
         rows = bk.row_products(X, actor, needs)

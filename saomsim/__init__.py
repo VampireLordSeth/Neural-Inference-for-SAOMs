@@ -2,7 +2,7 @@
 
 from .backend import get_backend
 from .effects import COVARIATE, KINDS, STRUCTURAL, Effect, Model
-from .estimate import EstimateResult, estimate, moments
+from .estimate import EstimateResult, estimate, estimate_rm, moments
 from .simulate import (
     SimulationInfo,
     random_network,
@@ -23,6 +23,7 @@ __all__ = [
     "Model",
     "SimulationInfo",
     "estimate",
+    "estimate_rm",
     "get_backend",
     "moments",
     "random_network",

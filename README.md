@@ -21,8 +21,9 @@ model = Model(["density", "recip", "transTrip", ("sameX", "grp")], {"grp": grp})
 X0 = random_network(B=1000, n=30, density=0.08, rng=rng)        # (B, n, n) int8
 X1 = simulate_period(X0, theta=[-2.2, 1.2, 0.35, 0.6], rate=3.0, model=model, rng=rng)
 S = statistics(X1, model)                                        # (B, K) target statistics
-res = estimate(X0[:200], X1[:200], model, rng)                   # method of moments
-print(res.table())
+res = estimate(X0[:200], X1[:200], model, rng)                   # method of moments, 200 panels
+res1 = estimate_rm(X0[0], X1[0], model, rng)                     # Robbins-Monro, one panel
+print(res.table(), res1.table())
 ```
 
 `B` chains run in lockstep on `(B, n, n)` arrays. Parameters may be shared
@@ -64,7 +65,7 @@ X1, info = simulate_period(..., return_info=True)  # info.n_steps, info.n_change
 | `effects.py` | `Effect`, `Model`; vectorized change statistics and target statistics for `density`, `recip`, `transTrip`, `cycle3`, `sameX`, `altX`, `egoX` |
 | `reference.py` | the same statistics as explicit loops on a single network. Slow. Sacred. |
 | `simulate.py` | `simulate_period`, `simulate_panel`, `random_network`, `rate_statistic`, `statistics` |
-| `estimate.py` | simulated method of moments: CRN finite-difference Jacobian, scaled Gauss-Newton with trust region and backtracking, sandwich standard errors |
+| `estimate.py` | `estimate`: multi-panel method of moments (CRN Jacobian, scaled Gauss-Newton, trust region, sandwich s.e.). `estimate_rm`: RSiena-style Robbins-Monro from a single panel, conditional on the observed distance |
 
 ## Model
 
@@ -115,6 +116,8 @@ The tests that carry the weight:
   toggle) rather than the statistics.
 - `test_estimate_recovers_parameters` (slow) — truth within 3 s.e. on 150
   panels.
+- `test_estimate_rm_recovers_from_one_panel` (slow) — Robbins-Monro from one
+  n = 30 panel converges by RSiena's rule and lands within 3 s.e.
 - `benchmarks/test_rsiena_parity.py` — target statistics on s501/s502 equal
   RSiena 1.6.6's to the last digit, all seven effects plus the rate.
 - `benchmarks/test_rsiena_dynamics.py` — distribution of simulated statistics
@@ -128,10 +131,9 @@ The tests that carry the weight:
 ## A result worth noticing
 
 With 200 simulated panels at n = 30 the method-of-moments standard errors in
-the quickstart are ~0.02–0.04. Divide by √200 the other way and a *single*
-panel carries a standard error of roughly 0.3–0.5 on each parameter — for
-`transTrip` that is larger than typical published effect sizes. This is not a
-bug. A small one-period panel simply carries little information about triadic
+the quickstart are ~0.02–0.04. From a *single* panel (`estimate_rm`, quickstart
+§4) they are 0.2–0.6 — for `transTrip` that is larger than typical published
+effect sizes. This is not a bug. A small one-period panel simply carries little information about triadic
 parameters, and any estimator, neural or classical, will report wide
 uncertainty on it. If the amortized posterior looks wide on single panels,
 check its calibration before assuming it is under-trained.
