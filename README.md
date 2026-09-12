@@ -50,10 +50,11 @@ One period of the basic SAOM (constant rate; evaluation function only):
   and the no-change option has Δ = 0
 - the chosen tie is toggled
 
-Actor statistics follow the RSiena manual. `recip` and `cycle3` are
-actor-summed, so a mutual dyad contributes 2 and a 3-cycle contributes 3 to the
-target statistic. Covariates are used as given (RSiena centres them by default —
-do that yourself if you want to match its numbers).
+Actor statistics follow the RSiena manual and target statistics follow RSiena's
+conventions, verified against RSiena 1.6.6 (see `benchmarks/`): `recip` is
+actor-summed (a mutual dyad contributes 2), `cycle3` counts each 3-cycle once
+(actor sum ÷ 3). Covariates are used as given; RSiena centres them by default,
+so pass centred values for `altX`/`egoX` if you want to match its numbers.
 
 ## Conventions
 
@@ -70,8 +71,8 @@ do that yourself if you want to match its numbers).
 ## Verification
 
 ```
-pytest -q -m "not slow"   # 83 tests, ~4 s
-pytest -q                 # + 1 recovery test, ~12 s
+pytest -q -m "not slow"   # 98 tests, ~8 s  (includes benchmarks/)
+pytest -q                 # + 1 recovery test, ~17 s
 python examples/quickstart.py
 ```
 
@@ -86,10 +87,12 @@ The tests that carry the weight:
   toggle) rather than the statistics.
 - `test_estimate_recovers_parameters` (slow) — truth within 3 s.e. on 150
   panels.
-
-Not yet done: comparison against RSiena itself. That is the M0 gate in
-GETTING_STARTED §5 and nothing about agreement with RSiena should be claimed
-until it passes.
+- `benchmarks/test_rsiena_parity.py` — target statistics on s501/s502 equal
+  RSiena 1.6.6's to the last digit, all seven effects plus the rate.
+- `benchmarks/test_rsiena_dynamics.py` — distribution of simulated statistics
+  from s501 at fixed θ matches RSiena's own simulator (means within Monte Carlo
+  error, spreads within 5 %). This is what licenses the phrase "agrees with
+  RSiena" for the model class implemented here.
 
 ## A result worth noticing
 

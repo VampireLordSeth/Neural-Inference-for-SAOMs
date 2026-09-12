@@ -19,10 +19,13 @@ Actor statistics ``s_ik`` (summed over ``i`` to give the target statistic):
     altX       sum_j x_ij v_j
     egoX       sum_j x_ij v_i
 
-Note that ``recip`` and ``cycle3`` count each mutual dyad / 3-cycle once *per
-actor involved* (twice and three times respectively). This is RSiena's
-convention too, but it is exactly the kind of thing the benchmark in
-``benchmarks/`` exists to confirm.
+Target statistics are ``sum_i s_ik`` with one exception, verified against
+RSiena 1.6.6 on the s50 data (``benchmarks/``): RSiena's ``cycle3`` target
+counts each 3-cycle *once*, i.e. ``sum_i s_i / 3``, whereas its ``recip`` target
+is the plain actor sum (each mutual dyad counted twice). ``statistics()``
+follows RSiena. Change statistics are unaffected: the factor 1/3 is a constant
+rescaling of the parameter, and RSiena's change statistic for ``cycle3`` is the
+plain two-path count ``sum_h x_jh x_hi`` as implemented here.
 
 Covariates are used as given. RSiena centres actor covariates by default;
 centre them yourself before passing them in if you want to match.
@@ -169,7 +172,8 @@ class Model:
                 out[:, k] = (Xf * XX).sum(axis=(1, 2))
             elif e.kind == "cycle3":
                 XX = Xf @ Xf if XX is None else XX
-                out[:, k] = np.einsum("bij,bji->b", XX, Xf)
+                # trace(X^3) counts each 3-cycle three times; RSiena's target counts it once
+                out[:, k] = np.einsum("bij,bji->b", XX, Xf) / 3.0
             else:
                 v = self._cov(e.covariate, B)
                 if e.kind == "sameX":

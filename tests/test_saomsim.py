@@ -226,23 +226,30 @@ def test_statistics_match_reference(effect, density):
 
 
 def test_statistics_are_sum_of_actor_statistics():
+    """Actor-summed for every effect; cycle3 divided by 3 (RSiena convention)."""
     rng = np.random.default_rng(6)
     n = 8
     m, covs = make_model(ALL_EFFECTS, n, rng)
     x = random_network(1, n, 0.4, rng)[0]
     S = statistics(x[None], m)[0]
     for k, e in enumerate(m.effects):
-        assert np.isclose(S[k], sum(ref.actor_statistic(x, i, e, covs) for i in range(n)))
+        total = sum(ref.actor_statistic(x, i, e, covs) for i in range(n))
+        assert np.isclose(S[k], total / 3 if e.kind == "cycle3" else total)
 
 
 def test_recip_and_cycle3_counting_convention():
-    """recip counts each mutual dyad twice, cycle3 each 3-cycle three times."""
+    """RSiena convention: recip counts each mutual dyad twice (actor-summed),
+    cycle3 counts each 3-cycle once. Both confirmed on RSiena 1.6.6."""
     x = np.zeros((1, 3, 3), dtype=np.int8)
     x[0, 0, 1] = x[0, 1, 0] = 1
     assert statistics(x, Model(["recip"]))[0, 0] == 2
     c = np.zeros((1, 3, 3), dtype=np.int8)
     c[0, 0, 1] = c[0, 1, 2] = c[0, 2, 0] = 1
-    assert statistics(c, Model(["cycle3"]))[0, 0] == 3
+    assert statistics(c, Model(["cycle3"]))[0, 0] == 1
+    # the change statistic is the plain two-path count, not divided
+    actor = np.array([2])
+    d = Model(["cycle3"]).change_statistics(batched_row_products(c, actor), actor)
+    assert d[0, 0, 0] == -1  # dissolving 2->0 destroys the cycle
     assert statistics(c, Model(["transTrip"]))[0, 0] == 0
     t = np.zeros((1, 3, 3), dtype=np.int8)
     t[0, 0, 1] = t[0, 1, 2] = t[0, 0, 2] = 1

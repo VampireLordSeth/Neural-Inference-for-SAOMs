@@ -1,0 +1,39 @@
+{
+  "rsiena_version": "1.6.6",
+  "n3": 2000,
+  "seed": 20240911,
+  "start": "s501",
+  "n": 50,
+  "labels": ["Rate", "density", "recip", "transTrip", "cycle3", "altX(alc)", "egoX(alc)", "sameX(smk)"],
+  "theta": {
+    "Rate": 5,
+    "density": -2.3,
+    "recip": 2.2,
+    "transTrip": 0.45,
+    "cycle3": -0.25,
+    "altX(alc)": 0.1,
+    "egoX(alc)": 0.05,
+    "sameX(smk)": 0.4
+  },
+  "mean": {
+    "Rate": 115.9685,
+    "density": 158.7355,
+    "recip": 94.692,
+    "transTrip": 99.4405,
+    "cycle3": 28.801,
+    "altX(alc)": 20.99176,
+    "egoX(alc)": 12.05026,
+    "sameX(smk)": 109.814
+  },
+  "sd": {
+    "Rate": 10.4025773035954,
+    "density": 13.5063596363088,
+    "recip": 11.7661530322612,
+    "transTrip": 30.1355028830947,
+    "cycle3": 9.41369788414345,
+    "altX(alc)": 13.22284472849,
+    "egoX(alc)": 12.6388477706191,
+    "sameX(smk)": 10.891910799324
+  },
+  "covariates": "alc = s50a[,1] centred; smk = s50s[,1]"
+}

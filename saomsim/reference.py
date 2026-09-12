@@ -75,13 +75,20 @@ def change_statistics_row(x: np.ndarray, i: int, effects, covariates=None) -> np
 
 
 def statistics(x: np.ndarray, effects, covariates=None) -> np.ndarray:
-    """Target statistics ``sum_i s_ik(x)``: shape ``(K,)``."""
+    """Target statistics, RSiena convention: shape ``(K,)``.
+
+    ``sum_i s_ik(x)`` for every effect except ``cycle3``, whose RSiena target
+    counts each 3-cycle once rather than once per member actor (so ``/ 3``).
+    Verified against RSiena 1.6.6 in ``benchmarks/``.
+    """
     n = x.shape[0]
     effects = [as_effect(e) for e in effects]
     out = np.zeros(len(effects))
     for k, e in enumerate(effects):
         for i in range(n):
             out[k] += actor_statistic(x, i, e, covariates)
+        if e.kind == "cycle3":
+            out[k] /= 3.0
     return out
 
 

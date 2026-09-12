@@ -165,8 +165,8 @@ into NumPy's einsum call, not bounce off it.
 ## 4. Verify
 
 ```bash
-pytest -q -m "not slow"     # expect: 83 passed, 1 deselected, ~4s
-pytest -q                   # expect: 84 passed, ~12s
+pytest -q -m "not slow"     # expect: 98 passed, 1 deselected, ~8s
+pytest -q                   # expect: 99 passed, ~17s
 python examples/quickstart.py
 ```
 
@@ -186,9 +186,16 @@ Everything downstream assumes this baseline.
 
 ## 5. First real task — close the M0 gate
 
-**This is the one thing that blocks everything else.** The simulator is
-internally consistent but has never been compared to RSiena. Until it has, no
-claim of agreement can go in the paper.
+**Status: closed 2026-09-11.** Both comparisons below pass against RSiena
+1.6.6; see `benchmarks/README.md` for the term-by-term resolution. The one
+convention difference found was `cycle3`: RSiena's target counts each 3-cycle
+once, the actor sum counts it three times. `statistics()` now follows RSiena.
+Everything else — including `recip` double-counting — agreed on the first run.
+
+The original brief, kept for the record:
+
+The simulator is internally consistent but has never been compared to RSiena.
+Until it has, no claim of agreement can go in the paper.
 
 ```bash
 # R side
@@ -216,10 +223,11 @@ RSiena includes) and in covariate centring (RSiena centres actor covariates by
 default; `saomsim` uses them as given).
 
 **Statistics agreeing is necessary, not sufficient.** Matching target
-statistics validates the effect definitions, not the ministep dynamics. For the
-paper's benchmark claim also compare simulated statistic *distributions*: run
-`siena07` with `simOnly = TRUE` / `returnDeps = TRUE` at fixed parameters and
-compare against `simulate_period` at the same parameters and the same `X0`.
+statistics validates the effect definitions, not the ministep dynamics. So
+`benchmarks/rsiena_simulate.R` also runs `siena07(simOnly = TRUE, cond = FALSE)`
+at fixed parameters from s501 and `test_rsiena_dynamics.py` compares the
+distribution of simulated statistics with `simulate_period` from the same
+`X0`. Means agree within Monte Carlo error, spreads within 5 %.
 
 Resolve conventions term by term, and write down what you found. That
 documentation is what lets a reviewer trust the benchmark section.
@@ -261,8 +269,8 @@ bandwidth is modest, so treat it as a throughput box.
 
 ## 7. Working order
 
-1. Close the RSiena gate (§5). Nothing else counts until this is done.
-2. Torch port, validated against the same tests (§6).
+1. ~~Close the RSiena gate (§5).~~ Done 2026-09-11.
+2. Torch port, validated against the same tests (§6). **Next.**
 3. Multi-wave support — `simulate_panel` exists but is untested beyond shape.
 4. Prior specification: write down the ranges and the reasoning *before*
    generating training data. This is a design decision with consequences for

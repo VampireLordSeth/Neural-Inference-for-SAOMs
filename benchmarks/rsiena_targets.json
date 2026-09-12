@@ -1,0 +1,17 @@
+{
+  "rsiena_version": "1.6.6",
+  "r_version": "R version 4.5.2 (2025-10-31 ucrt)",
+  "data": "s501 -> s502 (n = 50), covariates s50a[,1] (alc) and s50s[,1] (smk), centred",
+  "hamming": 115,
+  "targets": {
+    "Rate": 115,
+    "density": 116,
+    "recip": 70,
+    "transTrip": 88,
+    "cycle3": 28,
+    "altX(alc)": -4.07999999999999,
+    "egoX(alc)": 2.92000000000002,
+    "sameX(smk)": 83
+  },
+  "notes": ["targets are RSiena's actor-summed statistics of wave 2; rate target = tie changes", "altX/egoX use the centred covariate; sameX is centring-invariant"]
+}
