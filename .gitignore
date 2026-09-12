@@ -7,3 +7,4 @@ __pycache__/
 notebooks/*.ipynb_checkpoints/
 .venv-torch/
 benchmarks/*.npz
+data/

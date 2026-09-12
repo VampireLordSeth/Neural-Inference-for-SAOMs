@@ -117,6 +117,30 @@ def summary_names(model: Model, extra: bool = True) -> list[str]:
     return names + list(EXTRA_SUMMARIES) if extra else names
 
 
+COUNT_SUMMARIES = {"changes", "isolates", "mutual_dyads"}
+COUNT_EFFECTS = {"density", "recip", "transTrip", "cycle3", "sameX"}
+SIGNED_EFFECTS = {"altX", "egoX"}
+
+
+def transform_summaries(S: np.ndarray, names: list, model: Model) -> np.ndarray:
+    """Tame the heavy tails before a density estimator sees the summaries.
+
+    Count statistics (non-negative, cubic in ties for the triadic ones) get
+    ``log1p``; signed covariate sums get ``asinh`` (log-like in both tails,
+    linear near zero); ratios and standard deviations are left alone.
+    See docs/PRIORS.md §4. Any downstream z-scoring comes after this.
+    """
+    by_label = {e.label: e.kind for e in model.effects}
+    out = np.array(S, dtype=DTYPE, copy=True)
+    for k, name in enumerate(names):
+        kind = by_label.get(name)
+        if name in COUNT_SUMMARIES or kind in COUNT_EFFECTS:
+            out[:, k] = np.log1p(np.clip(out[:, k], 0, None))
+        elif kind in SIGNED_EFFECTS:
+            out[:, k] = np.arcsinh(out[:, k])
+    return out
+
+
 @dataclass
 class TrainingSet:
     theta: np.ndarray  # (N, dim)
@@ -127,13 +151,20 @@ class TrainingSet:
     meta: dict = field(default_factory=dict)
 
     def save(self, path) -> None:
+        """npz; networks are bit-packed along the last axis (n(n) bits -> n * ceil(n/8) bytes)."""
+        if self.X1 is not None:
+            packed = np.packbits(self.X1.astype(np.uint8), axis=-1)
+            n = self.X1.shape[-1]
+        else:
+            packed, n = np.zeros((0,), dtype=np.uint8), 0
         np.savez_compressed(
             path,
             theta=self.theta,
             summary=self.summary,
             theta_names=np.array(self.theta_names),
             summary_names=np.array(self.summary_names),
-            X1=self.X1 if self.X1 is not None else np.zeros((0,), dtype=np.int8),
+            X1_packed=packed,
+            X1_n=np.array(n),
             meta=np.array(repr(self.meta)),
         )
 
@@ -142,13 +173,17 @@ class TrainingSet:
         import ast
 
         with np.load(path, allow_pickle=False) as z:
-            X1 = z["X1"]
+            packed = z["X1_packed"]
+            n = int(z["X1_n"])
+            X1 = None
+            if packed.size:
+                X1 = np.unpackbits(packed, axis=-1, count=n).astype(np.int8)
             return cls(
                 theta=z["theta"],
                 summary=z["summary"],
                 theta_names=list(z["theta_names"]),
                 summary_names=list(z["summary_names"]),
-                X1=None if X1.size == 0 else X1,
+                X1=X1,
                 meta=ast.literal_eval(str(z["meta"])),
             )
 
@@ -165,6 +200,8 @@ def generate_training_set(
     keep_networks: bool = False,
     extra_summaries: bool = True,
     theta: np.ndarray | None = None,
+    sort_by_rate: bool = True,
+    progress: bool = False,
 ) -> TrainingSet:
     """Draw ``N`` parameters from ``prior`` (or use ``theta``), simulate one period
     each from the fixed start ``x0``, and return parameters with summaries.
@@ -172,6 +209,10 @@ def generate_training_set(
     Every draw is kept. ``chunk`` bounds memory: ``chunk * n * n * 8`` bytes of
     float64 per working array. ``theta`` overrides the prior draw (for SBC or
     fixed-parameter checks) and must have shape ``(N, prior.dim)``.
+
+    ``sort_by_rate`` simulates the draws in order of increasing rate so the
+    chains sharing a chunk have similar Poisson step counts (a chunk runs until
+    its slowest chain is done). Results are returned in the original order.
     """
     x0 = np.asarray(x0)
     if x0.ndim != 2 or x0.shape[0] != x0.shape[1]:
@@ -183,21 +224,31 @@ def generate_training_set(
         raise ValueError(f"theta must be ({N}, {prior.dim})")
 
     n = x0.shape[0]
+    order = np.argsort(theta[:, 0], kind="stable") if sort_by_rate else np.arange(N)
+    inverse = np.empty(N, dtype=np.int64)
+    inverse[order] = np.arange(N)
+    theta_sorted = theta[order]
+
     S_parts, X_parts = [], []
-    for start in range(0, N, chunk):
-        th = theta[start : start + chunk]
+    n_chunks = -(-N // chunk)
+    for c, start in enumerate(range(0, N, chunk)):
+        th = theta_sorted[start : start + chunk]
         B = th.shape[0]
         X0 = np.repeat(x0[None], B, axis=0)
         X1 = simulate_period(X0, th[:, 1:], th[:, 0], model, rng, backend=backend)
         S_parts.append(summaries(X0, X1, model, extra_summaries))
         if keep_networks:
             X_parts.append(X1)
+        if progress and (c % max(1, n_chunks // 20) == 0 or c == n_chunks - 1):
+            print(f"  chunk {c + 1}/{n_chunks}", flush=True)
+    summary = np.concatenate(S_parts, axis=0)[inverse]
+    X1_all = np.concatenate(X_parts, axis=0)[inverse] if keep_networks else None
     return TrainingSet(
         theta=theta,
-        summary=np.concatenate(S_parts, axis=0),
+        summary=summary,
         theta_names=list(prior.names),
         summary_names=summary_names(model, extra_summaries),
-        X1=np.concatenate(X_parts, axis=0) if keep_networks else None,
+        X1=X1_all,
         meta={
             "n": int(n),
             "N": int(N),

@@ -123,3 +123,30 @@ def test_prior_predictive_report_mentions_degeneracy():
     obs = ts.summary[0]
     txt = prior_predictive_report(ts, obs)
     assert "F(obs)" in txt and "prior predictive:" in txt and "tie_fraction" in txt
+
+
+def test_sort_by_rate_preserves_order_and_association():
+    model, prior, x0 = small_case()
+    theta = prior.sample(30, np.random.default_rng(9))
+    ts = generate_training_set(
+        prior, x0, model, 30, np.random.default_rng(10), theta=theta, chunk=8, keep_networks=True
+    )
+    assert np.array_equal(ts.theta, theta)  # original order kept
+    X0 = np.repeat(x0[None], 30, axis=0)
+    assert np.allclose(ts.summary, summaries(X0, ts.X1, model))  # rows still belong together
+
+
+def test_transform_summaries():
+    from saomsim.prior import transform_summaries
+
+    model = Model(["density", ("altX", "v")], {"v": np.zeros(4)})
+    names = summary_names(model)
+    S = np.zeros((2, len(names)))
+    S[0, names.index("density")] = np.e - 1
+    S[0, names.index("altX(v)")] = -np.sinh(1.0)
+    S[0, names.index("tie_fraction")] = 0.25
+    T = transform_summaries(S, names, model)
+    assert np.isclose(T[0, names.index("density")], 1.0)
+    assert np.isclose(T[0, names.index("altX(v)")], -1.0)
+    assert T[0, names.index("tie_fraction")] == 0.25
+    assert np.all(T[1] == 0)
