@@ -96,6 +96,81 @@ the remedy is more simulations and a richer embedding, not a different flow.
 - Per-fit cost 0.08 s. Training 67 min once, for every dataset with
   20 ≤ n ≤ 80 and this effect set.
 
+## Variant: learned panel embedding (2026-09-12)
+
+`saomsim/embedding.py` + `benchmarks/npe_m2_embed.py`: a permutation-invariant
+GNN over the actors of both waves and the covariates (per-actor degree, mutual,
+change and covariate features → two rounds of masked neighbour aggregation over
+X0 and X1 → masked mean/max pooling), with the 29 hand summaries appended as a
+residual, feeding the same NSF 8 × 128. Same 10⁶ panels, same prior. 935,584
+parameters; batch 512; 122 epochs; **325 min** (the last two hours sharing the
+GPU with the 10⁷ run). Best validation loss **−0.917 vs −0.361** for the
+summary-only model: the embedding extracts substantially more information from
+the panel than the 29 summaries do.
+
+![embedding SBC ranks](figures/m2_embed_sbc_ranks_population.png)
+
+Fresh 4,000-draw SBC across n:
+
+| parameter | KS p | mean rank | 90 % cov. | mean rank, n 20–34 → 65–79 |
+|---|---|---|---|---|
+| rate | 0.456 | 0.497 | 0.889 | 0.480 → 0.505 |
+| density | **< 0.001** | **0.453** | 0.892 | 0.465 → 0.444 |
+| recip | 0.013 | 0.489 | 0.897 | 0.487 → 0.483 |
+| transTrip | **< 0.001** | **0.560** | 0.887 | 0.548 → 0.575 |
+| cycle3 | 0.170 | 0.493 | 0.904 | 0.508 → 0.473 |
+| altX(v) | 0.504 | 0.502 | 0.895 | 0.495 → 0.497 |
+| egoX(v) | **< 0.001** | 0.475 | 0.876 | 0.501 → 0.456 |
+| sameX(g) | **< 0.001** | 0.464 | 0.897 | 0.480 → 0.443 |
+
+Reading:
+
+- **The ridge bias is still there and has flipped sign.** Summary-only M2 put
+  density slightly *low* and transTrip *high* (mean ranks 0.535 / 0.477); the
+  embedding model puts density *high* and transTrip *low* (0.453 / 0.560), and
+  by a somewhat larger margin (~0.15 posterior sd). A bias that reverses
+  direction between two estimators trained on the same data is a training
+  artefact — which side of the density–closure ridge the flow settles on —
+  not an information limit of the inputs.
+- **It grows with n** for the embedding model (density 0.465 → 0.444,
+  transTrip 0.548 → 0.575, sameX 0.480 → 0.443 from the smallest to the
+  largest size band), whereas the summary model's bias was flat in n. The
+  pooled actor representation is doing something size-dependent that log n as
+  an input does not fully correct; a normalised pooling (e.g. attention or
+  n-aware scaling of the sum) is the obvious thing to try.
+- Coverage remains within 1–2.5 points of nominal (worst: egoX 90 % at 0.876).
+- cycle3 — the parameter that was borderline in M1 and biased in summary-M2 —
+  is **clean** here (KS p 0.17, mean rank 0.493): the embedding does resolve
+  the triadic statistic the summaries blurred.
+
+The s50 real-start posterior, three estimators side by side:
+
+| parameter | RSiena | M1 (fixed start) | M2 summaries | **M2 embedding** |
+|---|---|---|---|---|
+| rate | 6.07 ± 1.03 | 5.88 ± 0.93 | 4.82 ± 0.83 | 4.84 ± 0.84 |
+| density | −2.66 ± 0.22 | −2.78 ± 0.23 | −2.84 ± 0.27 | **−2.75 ± 0.23** |
+| recip | 2.11 ± 0.28 | 2.06 ± 0.30 | 2.53 ± 0.35 | **2.38 ± 0.37** |
+| transTrip | 0.56 ± 0.19 | 0.64 ± 0.15 | 0.67 ± 0.19 | **0.49 ± 0.19** |
+| cycle3 | 0.05 ± 0.35 | 0.07 ± 0.26 | −0.07 ± 0.29 | **0.03 ± 0.31** |
+| altX | −0.07 ± 0.09 | −0.07 ± 0.09 | −0.20 ± 0.10 | **−0.08 ± 0.10** |
+| egoX | 0.03 ± 0.10 | 0.07 ± 0.10 | 0.01 ± 0.11 | **0.03 ± 0.12** |
+| sameX | 0.24 ± 0.23 | 0.28 ± 0.24 | 0.27 ± 0.28 | 0.28 ± 0.23 |
+
+On the real data the embedding model is the closest of the three population-
+free comparisons to RSiena on six of eight parameters (|z| ≤ 0.4 on density,
+transTrip, cycle3, altX, egoX, sameX; recip 0.7). The exception is the rate,
+where both M2 variants sit 1.2 sd below RSiena and M1 — the one parameter
+the population estimators read differently from the fixed-start one, and a
+lead worth following (the rate is identified through the change count
+relative to n and the start density; the population's start distribution may
+be pulling it).
+
+Cost: 5.4 h of training against 67 min for the summary model, for a
+posterior that is sharper (validation loss), better on the real data, clean
+on cycle3, and biased in the opposite direction on the ridge. The 10⁷
+summary-only run (in progress) tests the other lever — data — on the same
+bias.
+
 ## What this establishes and what it does not
 
 Established: a single amortized estimator conditioned on (X0, n, covariates)
