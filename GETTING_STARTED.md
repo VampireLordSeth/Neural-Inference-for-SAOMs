@@ -302,8 +302,13 @@ bandwidth is modest, so treat it as a throughput box.
    Done 2026-09-11: 10⁶ panels in 150 s, NSF trained in 75 min, posterior for
    s501→s502 agrees with RSiena on all eight parameters (`docs/M1_RESULTS.md`).
 6. ~~Simulation-based calibration.~~ Done: 7/8 parameters calibrated; cycle3
-   mildly over-confident (KS p = 0.011). Next: tune on 10⁵, coverage table,
-   posterior predictive checks, then M2 (condition on X0).
+   mildly over-confident (KS p = 0.011); coverage nominal; PPC clean; a 10⁵
+   tuning sweep showed calibration is data-limited (`docs/M1_RESULTS.md`).
+7. M2 — one estimator across starts, sizes and covariates: design in
+   `docs/PRIORS_M2.md` (population prior over X0, n ~ U{20..80}), code in
+   `saomsim/population.py`, `benchmarks/{generate_m2,npe_m2,m2_prior_predictive}.py`.
+   10⁶ population panels generated 2026-09-12 (9 min); s50 in-distribution on
+   all 29 summaries. Results in `docs/M2_RESULTS.md` when training completes.
 
 ## 8. Conventions worth keeping
 
