@@ -298,8 +298,12 @@ bandwidth is modest, so treat it as a throughput box.
    s502 between the 16th and 65th percentile on every summary; zero
    degenerate panels). Code: `saomsim/prior.py`, `benchmarks/s50.py`,
    `benchmarks/prior_predictive.py`.
-5. Generate the training set; attach a conditional normalizing flow via `sbi`.
-6. Simulation-based calibration.
+5. ~~Generate the training set; attach a conditional normalizing flow via `sbi`.~~
+   Done 2026-09-11: 10⁶ panels in 150 s, NSF trained in 75 min, posterior for
+   s501→s502 agrees with RSiena on all eight parameters (`docs/M1_RESULTS.md`).
+6. ~~Simulation-based calibration.~~ Done: 7/8 parameters calibrated; cycle3
+   mildly over-confident (KS p = 0.011). Next: tune on 10⁵, coverage table,
+   posterior predictive checks, then M2 (condition on X0).
 
 ## 8. Conventions worth keeping
 
