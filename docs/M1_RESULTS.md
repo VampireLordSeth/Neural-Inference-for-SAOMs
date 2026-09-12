@@ -145,6 +145,35 @@ estimator finding, and it is exactly what RSiena's `sienaGOF` reports for
 this effect set. Useful for §4: the PPC diagnoses the model independently of
 how the posterior was obtained.
 
+## Tuning sweep on 10⁵ draws (2026-09-12) — a negative result worth keeping
+
+Four configurations trained on the first 10⁵ draws (1,000 held out), to see
+whether architecture fixes cycle3 cheaply. It does not; data does.
+
+| config | batch | flow | epochs | best val loss | KS p < 0.05 on |
+|---|---|---|---|---|---|
+| M1 (reference) | 1024 | NSF 6 × 100 | 158 (10⁶ rows) | **−1.316** | cycle3 (0.011) |
+| A | 1024 | NSF 6 × 100 | 205 | −0.844 | density (0.003) |
+| B | 4096 | NSF 8 × 100 | 222 | −0.490 | rate (0.001), density (0.019), transTrip (0.028), cycle3 (0.005) |
+| C | 4096 | NSF 10 × 128, lr 3e-4 | 301 (cap) | −0.513 | density (0.004), cycle3 (0.023) |
+| D | 4096 | MAF 8 × 100 | 301 (cap) | −0.153 | density (0.001), transTrip (0.005) |
+
+- Ten times more data moved the validation loss from −0.84 to −1.32 and
+  cleared every parameter but cycle3. No architecture change at 10⁵ came
+  close. **Calibration here is data-limited, not capacity-limited.**
+- Batch 4096 is worse than 1024 at 10⁵ rows (fewer gradient steps per
+  epoch); C and D hit the 300-epoch cap still improving. MAF is clearly worse
+  than NSF on these summaries.
+- cycle3's rank deviation has no consistent direction across runs (M1 and B
+  skew low, C skews high) and the tail masses P(r < 0.1) + P(r > 0.9) are
+  0.20–0.23 against 0.20 expected; coverage is nominal. Reading: cycle3 is the
+  least identified parameter (posterior sd 0.26 vs prior sd 0.58) and sits at
+  the edge of what 13 summaries plus this training budget resolve. Not a
+  bias. Two honest routes, both deferred to M2 where the architecture changes
+  anyway: more data (10⁷ panels is ~25 min of simulation; training scales
+  linearly) and a learned embedding on the stored networks.
+- Do not tune on 10⁵ for calibration questions; use it only for smoke tests.
+
 ## Cost accounting
 
 | step | wall clock |
@@ -164,10 +193,9 @@ then train once at full size.
 
 ## What to do next
 
-- Tune on `--limit 100000` (batch 4096, more transforms) and check whether
-  cycle3's calibration recovers; if not, it points to the embedding.
-- Coverage table (nominal vs empirical) from the same held-out set for §4.
-- Posterior predictive check on statistics not in the embedding
-  (e.g. triad census, geodesic distribution) — §4 "goodness of fit in graph
-  space".
-- Then M2: condition on X0 so one estimator covers many networks.
+- ~~Tune on 10⁵~~ done: data-limited, see above.
+- ~~Coverage table~~ done: nominal.
+- ~~Posterior predictive check~~ done: nothing outside 95 %; mild excess
+  out-degree heterogeneity in the model (specification, not estimator).
+- M2: condition on X0 so one estimator covers many networks. Bring the
+  learned embedding in there; re-examine cycle3 with 10⁷ panels then.
