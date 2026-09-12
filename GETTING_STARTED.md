@@ -165,8 +165,8 @@ into NumPy's einsum call, not bounce off it.
 ## 4. Verify
 
 ```bash
-pytest -q -m "not slow"     # expect: 98 passed, 1 deselected, ~8s
-pytest -q                   # expect: 99 passed, ~17s
+pytest -q -m "not slow"     # numpy-only env: 105 passed, 56 skipped (torch cases)
+pytest -q                   # with torch: 161 passed
 python examples/quickstart.py
 ```
 
@@ -234,6 +234,21 @@ documentation is what lets a reviewer trust the benchmark section.
 
 ## 6. Second task — the torch port
 
+**Status: done 2026-09-11.** `saomsim/backend_torch.py` implements the backend
+interface; `simulate_period(..., backend="torch")` or a `TorchBackend(device,
+dtype)` instance. The full suite runs against numpy and torch via the
+`backend` fixture in `conftest.py`; 160 fast tests pass on the GB10 in both
+float64 and float32, including the RSiena dynamics benchmark. Measured
+throughput is in the package README; headline: 122k panels/s at n = 30
+(CUDA f32) vs 5.2k numpy on the same machine.
+
+One gotcha found: torch 2.13 routes a `(B, n, K) @ (B, K, 1)` bmm to a Triton
+JIT kernel, which needs `python3-dev` on the host. The objective uses a
+multiply-reduce instead. If Triton errors ever appear elsewhere,
+`sudo apt install python3-dev` on the Spark is the fix.
+
+The original brief, kept for the record:
+
 Only after §5 passes.
 
 The target machine is the DGX Spark (`ssh spark`, 192.168.1.49, GB10,
@@ -270,8 +285,10 @@ bandwidth is modest, so treat it as a throughput box.
 ## 7. Working order
 
 1. ~~Close the RSiena gate (§5).~~ Done 2026-09-11.
-2. Torch port, validated against the same tests (§6). **Next.**
-3. Multi-wave support — `simulate_panel` exists but is untested beyond shape.
+2. ~~Torch port, validated against the same tests (§6).~~ Done 2026-09-11.
+3. Multi-wave support — `simulate_panel` runs consecutive periods and is
+   tested for sequencing and per-period parameters; multi-wave *estimation*
+   is not.
 4. Prior specification: write down the ranges and the reasoning *before*
    generating training data. This is a design decision with consequences for
    where the estimator can be trusted, not an implementation detail.

@@ -10,7 +10,8 @@ Matching *these* says the ministep process agrees: rate/Poisson step count,
 uniform actor choice, multinomial logit over the neighbourhood including the
 no-change option, and the change statistics as used inside the objective.
 
-Reference run (RSiena 1.6.6 vs saomsim, 2000 vs 4000 sims): all |z| < 1.4,
+Runs on every backend (conftest.py fixture). Reference run (RSiena 1.6.6 vs
+saomsim numpy, 2000 vs 4000 sims): all |z| < 1.4,
 sd ratios 0.96-1.00.
 """
 
@@ -35,7 +36,7 @@ EFFECTS = {
 }
 
 
-def run_saomsim(B, seed=0):
+def run_saomsim(B, backend, seed=0):
     x1 = np.loadtxt(HERE / "s501.csv", delimiter=",", dtype=np.int8)
     cov = np.genfromtxt(HERE / "s50_covariates.csv", delimiter=",", names=True)
     with open(HERE / "rsiena_sims.json", encoding="utf-8") as fh:
@@ -46,17 +47,19 @@ def run_saomsim(B, seed=0):
     model = Model([EFFECTS[lbl] for lbl in labels[1:]], covariates)
     theta = np.array([meta["theta"][lbl] for lbl in labels])
     X0 = np.repeat(x1[None], B, axis=0)
-    X1 = simulate_period(X0, theta[1:], theta[0], model, np.random.default_rng(seed))
+    X1 = simulate_period(
+        X0, theta[1:], theta[0], model, np.random.default_rng(seed), backend=backend
+    )
     return labels, moments(X0, X1, model)
 
 
-@pytest.fixture(scope="module")
-def samples():
+@pytest.fixture
+def samples(backend):
     missing = [f for f in FILES if not (HERE / f).exists()]
     if missing:
         pytest.skip(f"benchmark inputs missing ({missing}); run benchmarks/rsiena_simulate.R")
     R = np.loadtxt(HERE / "rsiena_sims.csv", delimiter=",", skiprows=1)
-    labels, S = run_saomsim(B=1500)
+    labels, S = run_saomsim(B=1500, backend=backend)
     assert R.shape[1] == S.shape[1] == len(labels)
     return labels, R, S
 

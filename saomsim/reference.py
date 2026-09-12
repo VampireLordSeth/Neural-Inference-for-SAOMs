@@ -95,3 +95,10 @@ def statistics(x: np.ndarray, effects, covariates=None) -> np.ndarray:
 def objective(x, i, theta, effects, covariates=None) -> np.ndarray:
     """``f_ij = sum_k theta_k delta_ijk`` for every ``j``: shape ``(n,)``."""
     return change_statistics_row(x, i, effects, covariates) @ np.asarray(theta, dtype=float)
+
+
+def choice_probabilities(x, i, theta, effects, covariates=None) -> np.ndarray:
+    """Multinomial-logit probabilities over actor ``i``'s ``n`` options, by brute force."""
+    f = objective(x, i, theta, effects, covariates)
+    e = np.exp(f - f.max())
+    return e / e.sum()

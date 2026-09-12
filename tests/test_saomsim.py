@@ -2,12 +2,15 @@
 
 The load-bearing tests are the ``*_match_reference`` ones: every vectorized
 kernel is checked against the loop implementation in ``saomsim.reference`` on
-random networks at several densities. Everything else is behavioural.
+random networks at several densities, on every available backend (the
+``backend`` fixture in conftest.py: numpy always, torch when installed).
+Everything else is behavioural.
 """
 
 import numpy as np
 import pytest
 
+from conftest import to_np
 from saomsim import (
     KINDS,
     Effect,
@@ -21,7 +24,7 @@ from saomsim import (
     statistics,
 )
 from saomsim import reference as ref
-from saomsim.backend import batched_row_products, categorical_sample, softmax, toggle
+from saomsim.backend import NUMPY, batched_row_products
 
 DENSITIES = [0.05, 0.3, 0.7]
 ALL_EFFECTS = [
@@ -53,73 +56,90 @@ def seed_from(*parts):
     return abs(hash(tuple(str(p) for p in parts))) % 2**32
 
 
+def rows_on(backend, X, actor, needs=None):
+    """Row products of numpy inputs computed on ``backend``."""
+    Xd, ad = backend.network(X), backend.int_array(actor)
+    rows = backend.row_products(Xd, ad) if needs is None else backend.row_products(Xd, ad, needs)
+    return rows, ad
+
+
 # ------------------------------------------------------------------ backend
 
 
 @pytest.mark.parametrize("density", DENSITIES)
-def test_row_products_match_loops(density):
+def test_row_products_match_loops(backend, density):
     rng = np.random.default_rng(10)
     B, n = 6, 9
-    X = random_network(B, n, density, rng).astype(float)
+    X = random_network(B, n, density, rng)
     actor = rng.integers(0, n, size=B)
-    rows = batched_row_products(X, actor)
+    rows, _ = rows_on(backend, X, actor)
+    out_row, in_col = to_np(backend, rows.out_row), to_np(backend, rows.in_col)
+    two_path, shared_out = to_np(backend, rows.two_path), to_np(backend, rows.shared_out)
+    back_path = to_np(backend, rows.back_path)
     for b in range(B):
         i = actor[b]
-        x = X[b]
-        assert np.array_equal(rows.out_row[b], x[i, :])
-        assert np.array_equal(rows.in_col[b], x[:, i])
+        x = X[b].astype(float)
+        assert np.array_equal(out_row[b], x[i, :])
+        assert np.array_equal(in_col[b], x[:, i])
         for j in range(n):
-            assert rows.two_path[b, j] == sum(x[i, h] * x[h, j] for h in range(n))
-            assert rows.shared_out[b, j] == sum(x[i, h] * x[j, h] for h in range(n))
-            assert rows.back_path[b, j] == sum(x[j, h] * x[h, i] for h in range(n))
+            assert two_path[b, j] == sum(x[i, h] * x[h, j] for h in range(n))
+            assert shared_out[b, j] == sum(x[i, h] * x[j, h] for h in range(n))
+            assert back_path[b, j] == sum(x[j, h] * x[h, i] for h in range(n))
 
 
-def test_row_products_respect_needs():
+def test_row_products_respect_needs(backend):
     rng = np.random.default_rng(11)
     X = random_network(3, 5, 0.4, rng)
     actor = np.array([0, 1, 2])
-    rows = batched_row_products(X, actor, frozenset({"back_path"}))
+    rows, _ = rows_on(backend, X, actor, frozenset({"back_path"}))
     assert rows.two_path is None and rows.shared_out is None
     assert rows.back_path is not None
-    full = batched_row_products(X, actor)
-    assert np.array_equal(rows.back_path, full.back_path)
+    full, _ = rows_on(backend, X, actor)
+    assert np.array_equal(to_np(backend, rows.back_path), to_np(backend, full.back_path))
 
 
-def test_softmax_rows_sum_to_one_and_are_shift_invariant():
+def test_softmax_rows_sum_to_one_and_are_shift_invariant(backend):
     rng = np.random.default_rng(2)
     f = rng.normal(size=(5, 7)) * 30
-    p = softmax(f)
-    assert np.allclose(p.sum(axis=1), 1.0)
-    assert np.allclose(p, softmax(f + 1000.0))
+    p = to_np(backend, backend.softmax(backend.array(f)))
+    p_shift = to_np(backend, backend.softmax(backend.array(f + 1000.0)))
+    assert np.allclose(p.sum(axis=1), 1.0, atol=1e-6)
+    # a shift of 1000 costs ~6e-5 absolute in float32 logits; probabilities inherit it
+    assert np.allclose(p, p_shift, atol=1e-4)
     assert np.all(np.isfinite(p))
 
 
-def test_categorical_sample_is_inverse_cdf():
+def test_categorical_sample_is_inverse_cdf(backend):
     p = np.array([[0.2, 0.5, 0.3], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
     u = np.array([0.65, 0.999, 0.001])
-    assert categorical_sample(p, u).tolist() == [1, 0, 2]
+
+    def draw(pp, uu):
+        return to_np(backend, backend.categorical_sample(backend.array(pp), backend.array(uu)))
+
+    assert draw(p, u).tolist() == [1, 0, 2]
     # u exactly on a cdf edge goes to the lower cell; u == 1 never overflows
-    assert categorical_sample(p[:1], np.array([0.2]))[0] == 0
-    assert categorical_sample(p[:1], np.array([1.0]))[0] == 2
+    assert draw(p[:1], np.array([0.2]))[0] == 0
+    assert draw(p[:1], np.array([1.0]))[0] == 2
 
 
-def test_categorical_sample_frequencies():
+def test_categorical_sample_frequencies(backend):
     rng = np.random.default_rng(3)
-    p = np.tile([[0.1, 0.6, 0.3]], (200_000, 1))
-    draws = categorical_sample(p, rng.random(200_000))
+    p = backend.array(np.tile([[0.1, 0.6, 0.3]], (200_000, 1)))
+    draws = to_np(backend, backend.categorical_sample(p, backend.array(rng.random(200_000))))
     freq = np.bincount(draws, minlength=3) / draws.size
     assert np.allclose(freq, [0.1, 0.6, 0.3], atol=0.01)
 
 
-def test_toggle_flips_only_active_offdiagonal():
-    X = np.zeros((3, 4, 4))
-    actor = np.array([0, 1, 2])
-    target = np.array([1, 1, 3])  # chain 1 picks itself: no change
-    active = np.array([True, True, False])  # chain 2 inactive
-    toggle(X, actor, target, active)
-    assert X[0, 0, 1] == 1 and X.sum() == 1
-    toggle(X, actor, target, active)
-    assert X.sum() == 0
+def test_toggle_flips_only_active_offdiagonal(backend):
+    X = backend.network(np.zeros((3, 4, 4)))
+    actor = backend.int_array([0, 1, 2])
+    target = backend.int_array([1, 1, 3])  # chain 1 picks itself: no change
+    active = backend.int_array([1, 1, 0]) > 0  # chain 2 inactive
+    backend.toggle(X, actor, target, active)
+    Xn = to_np(backend, X)
+    assert Xn[0, 0, 1] == 1 and Xn.sum() == 1
+    backend.toggle(X, actor, target, active)
+    assert to_np(backend, X).sum() == 0
 
 
 # ---------------------------------------------------------------- effects
@@ -155,13 +175,14 @@ def test_model_labels_and_needs():
 
 @pytest.mark.parametrize("effect", ALL_EFFECTS, ids=effect_id)
 @pytest.mark.parametrize("density", DENSITIES)
-def test_change_statistics_match_reference(effect, density):
+def test_change_statistics_match_reference(backend, effect, density):
     rng = np.random.default_rng(seed_from(effect, density))
     B, n = 8, 11
     m, covs = make_model([effect], n, rng)
     X = random_network(B, n, density, rng)
     actor = rng.integers(0, n, size=B)
-    delta = m.change_statistics(batched_row_products(X, actor), actor)
+    rows, ad = rows_on(backend, X, actor)
+    delta = to_np(backend, m.change_statistics(rows, ad, backend))
     assert delta.shape == (B, n, 1)
     for b in range(B):
         expect = ref.change_statistics_row(X[b], actor[b], [effect], covs)
@@ -169,28 +190,29 @@ def test_change_statistics_match_reference(effect, density):
 
 
 @pytest.mark.parametrize("density", DENSITIES)
-def test_change_statistics_all_effects_jointly_match_reference(density):
+def test_change_statistics_all_effects_jointly_match_reference(backend, density):
     rng = np.random.default_rng(int(density * 1000))
     B, n = 5, 12
     m, covs = make_model(ALL_EFFECTS, n, rng)
     X = random_network(B, n, density, rng)
     actor = rng.integers(0, n, size=B)
-    delta = m.change_statistics(batched_row_products(X, actor), actor)
+    rows, ad = rows_on(backend, X, actor)
+    delta = to_np(backend, m.change_statistics(rows, ad, backend))
     for b in range(B):
         expect = ref.change_statistics_row(X[b], actor[b], ALL_EFFECTS, covs)
         assert np.allclose(delta[b], expect)
 
 
-def test_no_change_option_is_zero():
+def test_no_change_option_is_zero(backend):
     rng = np.random.default_rng(4)
     B, n = 20, 8
     m, _ = make_model(ALL_EFFECTS, n, rng)
     X = random_network(B, n, 0.5, rng)
     actor = rng.integers(0, n, size=B)
-    rows = batched_row_products(X, actor)
-    delta = m.change_statistics(rows, actor)
+    rows, ad = rows_on(backend, X, actor)
+    delta = to_np(backend, m.change_statistics(rows, ad, backend))
     assert np.all(delta[np.arange(B), actor, :] == 0)
-    f = m.objective(rows, actor, rng.normal(size=m.K))
+    f = to_np(backend, m.objective(rows, ad, backend.array(rng.normal(size=m.K)), backend))
     assert np.all(f[np.arange(B), actor] == 0)
 
 
@@ -256,38 +278,52 @@ def test_recip_and_cycle3_counting_convention():
     assert statistics(t, Model(["transTrip"]))[0, 0] == 1
 
 
-def test_per_chain_covariates():
+def test_per_chain_covariates(backend):
     rng = np.random.default_rng(7)
     B, n = 4, 7
     grp = rng.integers(0, 2, size=(B, n)).astype(float)
     m = Model([("sameX", "grp")], {"grp": grp})
     X = random_network(B, n, 0.4, rng)
     actor = rng.integers(0, n, size=B)
-    delta = m.change_statistics(batched_row_products(X, actor), actor)
+    rows, ad = rows_on(backend, X, actor)
+    delta = to_np(backend, m.change_statistics(rows, ad, backend))
     S = statistics(X, m)
     for b in range(B):
         covs_b = {"grp": grp[b]}
-        assert np.allclose(
-            delta[b], ref.change_statistics_row(X[b], actor[b], [("sameX", "grp")], covs_b)
-        )
+        expect = ref.change_statistics_row(X[b], actor[b], [("sameX", "grp")], covs_b)
+        assert np.allclose(delta[b], expect)
         assert np.allclose(S[b], ref.statistics(X[b], [("sameX", "grp")], covs_b))
     with pytest.raises(ValueError):
         m.statistics(random_network(B + 1, n, 0.4, rng))
 
 
-def test_objective_matches_reference_with_per_chain_theta():
+def test_objective_matches_reference_with_per_chain_theta(backend):
     rng = np.random.default_rng(8)
     B, n = 5, 8
     m, covs = make_model(ALL_EFFECTS, n, rng)
     X = random_network(B, n, 0.3, rng)
     actor = rng.integers(0, n, size=B)
     theta = rng.normal(size=(B, m.K))
-    rows = batched_row_products(X, actor)
-    f = m.objective(rows, actor, theta)
+    rows, ad = rows_on(backend, X, actor)
+    f = to_np(backend, m.objective(rows, ad, backend.array(theta), backend))
     for b in range(B):
         assert np.allclose(f[b], ref.objective(X[b], actor[b], theta[b], ALL_EFFECTS, covs))
-    f_shared = m.objective(rows, actor, theta[0])
+    f_shared = to_np(backend, m.objective(rows, ad, backend.array(theta[0]), backend))
     assert np.allclose(f_shared[0], f[0])
+
+
+def test_choice_probabilities_match_reference(backend):
+    rng = np.random.default_rng(12)
+    B, n = 6, 9
+    m, covs = make_model(ALL_EFFECTS, n, rng)
+    X = random_network(B, n, 0.3, rng)
+    actor = rng.integers(0, n, size=B)
+    theta = rng.normal(size=m.K) * 0.7
+    rows, ad = rows_on(backend, X, actor)
+    p = to_np(backend, backend.softmax(m.objective(rows, ad, backend.array(theta), backend)))
+    for b in range(B):
+        expect = ref.choice_probabilities(X[b], actor[b], theta, ALL_EFFECTS, covs)
+        assert np.allclose(p[b], expect)
 
 
 # --------------------------------------------------------------- simulate
@@ -300,31 +336,44 @@ def test_random_network_shape_dtype_diagonal():
     assert set(np.unique(X)) <= {0, 1}
 
 
-def test_simulate_period_shape_dtype_diagonal():
+def test_simulate_period_shape_dtype_diagonal(backend):
     rng = np.random.default_rng(0)
     X0 = random_network(10, 12, 0.2, rng)
-    X1 = simulate_period(X0, [-1.0, 0.5], 2.0, Model(["density", "recip"]), rng)
+    m = Model(["density", "recip"])
+    X1 = simulate_period(X0, [-1.0, 0.5], 2.0, m, rng, backend=backend)
     assert X1.shape == X0.shape and X1.dtype == np.int8
     assert np.all(X1[:, np.arange(12), np.arange(12)] == 0)
     assert set(np.unique(X1)) <= {0, 1}
 
 
-def test_simulate_does_not_modify_input():
+def test_simulate_does_not_modify_input(backend):
     rng = np.random.default_rng(0)
     X0 = random_network(5, 8, 0.2, rng)
     before = X0.copy()
-    simulate_period(X0, [-1.0], 2.0, Model(["density"]), rng)
+    simulate_period(X0, [-1.0], 2.0, Model(["density"]), rng, backend=backend)
     assert np.array_equal(X0, before)
 
 
-def test_reproducible_from_seed():
+def test_reproducible_from_seed(backend):
     m = Model(["density", "recip", "transTrip"])
     X0 = random_network(50, 15, 0.1, np.random.default_rng(0))
-    a = simulate_period(X0, [-2.0, 1.0, 0.3], 3.0, m, np.random.default_rng(123))
-    b = simulate_period(X0, [-2.0, 1.0, 0.3], 3.0, m, np.random.default_rng(123))
-    c = simulate_period(X0, [-2.0, 1.0, 0.3], 3.0, m, np.random.default_rng(124))
+    th = [-2.0, 1.0, 0.3]
+    a = simulate_period(X0, th, 3.0, m, np.random.default_rng(123), backend=backend)
+    b = simulate_period(X0, th, 3.0, m, np.random.default_rng(123), backend=backend)
+    c = simulate_period(X0, th, 3.0, m, np.random.default_rng(124), backend=backend)
     assert np.array_equal(a, b)
     assert not np.array_equal(a, c)
+
+
+def test_step_schedule_identical_across_backends(backend):
+    """The Poisson ministep count comes from the numpy Generator on every backend."""
+    m = Model(["density"])
+    X0 = random_network(300, 10, 0.2, np.random.default_rng(0))
+    _, s_np = simulate_period(X0, [-1.0], 2.0, m, np.random.default_rng(5), return_n_steps=True)
+    _, s_bk = simulate_period(
+        X0, [-1.0], 2.0, m, np.random.default_rng(5), backend=backend, return_n_steps=True
+    )
+    assert np.array_equal(s_np, s_bk)
 
 
 def test_chain_unaffected_by_other_chains_parameters():
@@ -340,10 +389,10 @@ def test_chain_unaffected_by_other_chains_parameters():
     assert np.array_equal(a[:3], b[:3])
 
 
-def test_zero_rate_leaves_network_unchanged():
+def test_zero_rate_leaves_network_unchanged(backend):
     rng = np.random.default_rng(0)
     X0 = random_network(5, 8, 0.3, rng)
-    X1 = simulate_period(X0, [-1.0], 0.0, Model(["density"]), rng)
+    X1 = simulate_period(X0, [-1.0], 0.0, Model(["density"]), rng, backend=backend)
     assert np.array_equal(X0, X1)
 
 
@@ -354,6 +403,66 @@ def test_number_of_ministeps_is_poisson_n_rate():
     _, steps = simulate_period(X0, [-1.0], rate, Model(["density"]), rng, return_n_steps=True)
     assert abs(steps.mean() - n * rate) < 0.5
     assert abs(steps.var() - n * rate) < 2.0
+
+
+def test_fixed_n_steps_and_change_count(backend):
+    rng = np.random.default_rng(1)
+    X0 = random_network(32, 20, 0.15, rng)
+    m = Model(["density", "recip"])
+    X1, info = simulate_period(
+        X0, [-1.0, 0.5], model=m, rng=rng, n_steps=25, return_info=True, backend=backend
+    )
+    assert np.all(info.n_steps == 25)
+    assert np.all(info.n_changes <= 25) and info.n_changes.mean() > 15
+    assert np.all(info.reached)
+    assert np.all(rate_statistic(X0, X1) <= info.n_changes)  # back-and-forth flips cancel
+
+
+def test_conditional_simulation_stops_at_observed_distance(backend):
+    rng = np.random.default_rng(2)
+    B, n = 64, 15
+    X0 = random_network(B, n, 0.15, rng)
+    m = Model(["density", "recip"])
+    d = 30
+    X1, info = simulate_period(
+        X0, [-1.5, 1.0], model=m, rng=rng, distance=d, return_info=True, backend=backend
+    )
+    assert np.all(info.reached)
+    assert np.all(rate_statistic(X0, X1) == d)  # exactly the observed distance: RSiena's rule
+    assert np.all(info.n_steps >= d)  # cannot get there in fewer ministeps
+    # per-chain targets, including zero
+    target = rng.integers(0, 20, size=B)
+    X1, info = simulate_period(
+        X0, [-1.5, 1.0], model=m, rng=rng, distance=target, return_info=True, backend=backend
+    )
+    assert np.all(rate_statistic(X0, X1) == target)
+    assert np.all(info.n_steps[target == 0] == 0)
+
+
+def test_conditional_simulation_reports_unreachable(backend):
+    rng = np.random.default_rng(3)
+    X0 = random_network(4, 6, 0.3, rng)
+    m = Model(["density"])
+    # a very negative density empties the network and then nothing changes; a
+    # distance beyond the number of initial ties is unreachable within max_steps
+    d = int(X0.sum(axis=(1, 2)).max()) + 5
+    X1, info = simulate_period(
+        X0, [-30.0], model=m, rng=rng, distance=d, max_steps=200, return_info=True, backend=backend
+    )
+    assert not np.any(info.reached)
+    assert np.all(info.n_steps == 200)
+
+
+def test_step_rule_validation():
+    rng = np.random.default_rng(0)
+    X0 = random_network(3, 5, 0.2, rng)
+    m = Model(["density"])
+    with pytest.raises(ValueError, match="exactly one"):
+        simulate_period(X0, [-1.0], model=m, rng=rng)
+    with pytest.raises(ValueError, match="exactly one"):
+        simulate_period(X0, [-1.0], 1.0, m, rng, n_steps=5)
+    with pytest.raises(ValueError):
+        simulate_period(X0, [-1.0], model=m, rng=rng, distance=100)
 
 
 def test_rate_increases_tie_changes():
@@ -378,6 +487,18 @@ def test_density_parameter_controls_density():
     assert all(np.diff(dens) > 0)
 
 
+def test_zero_theta_gives_density_one_half(backend):
+    """With theta = 0 every option is equally likely, so the stationary law is
+    uniform over all digraphs and the expected density is exactly 1/2."""
+    rng = np.random.default_rng(6)
+    n = 12
+    X0 = random_network(400, n, 0.1, rng)
+    m = Model(["density"])
+    X1 = simulate_period(X0, [0.0], model=m, rng=rng, n_steps=600, backend=backend)
+    dens = X1.sum() / (400 * n * (n - 1))
+    assert abs(dens - 0.5) < 0.02
+
+
 def exact_stationary_distribution(n, model, theta):
     """Stationary law of the ministep chain on all 2^(n(n-1)) digraphs, by brute force."""
     import itertools
@@ -394,9 +515,7 @@ def exact_stationary_distribution(n, model, theta):
     P = np.zeros((S, S))
     for a, x in enumerate(states):
         for i in range(n):
-            f = ref.objective(x, i, theta, model.effects, model.covariates)
-            p = np.exp(f - f.max())
-            p /= p.sum()
+            p = ref.choice_probabilities(x, i, theta, model.effects, model.covariates)
             for j in range(n):
                 if j == i:
                     P[a, a] += p[j] / n
@@ -410,7 +529,7 @@ def exact_stationary_distribution(n, model, theta):
     return states, index, pi
 
 
-def test_simulation_matches_exact_stationary_distribution():
+def test_simulation_matches_exact_stationary_distribution(backend):
     """The simulator's long-run law equals the exact stationary distribution of
     the ministep Markov chain on n = 3 (64 states). This checks the *dynamics*,
     not just the statistics: actor choice, softmax over the neighbourhood,
@@ -422,7 +541,7 @@ def test_simulation_matches_exact_stationary_distribution():
     rng = np.random.default_rng(0)
     B = 40_000
     X0 = random_network(B, n, 0.5, rng)
-    X1 = simulate_period(X0, theta, 40.0, model, rng)  # ~120 ministeps: well mixed
+    X1 = simulate_period(X0, theta, 40.0, model, rng, backend=backend)  # ~120 ministeps
     counts = np.zeros(len(states))
     for x in X1:
         counts[index[x.tobytes()]] += 1
@@ -433,18 +552,39 @@ def test_simulation_matches_exact_stationary_distribution():
     assert pi.max() / pi.min() > 5
 
 
-def test_reciprocity_increases_mutual_dyads():
+def test_backends_agree_in_distribution(backend):
+    """Same X0 and theta on numpy and on ``backend``: simulated statistics agree
+    in mean within Monte Carlo error and in spread. Skipped for numpy itself."""
+    if backend is NUMPY:
+        pytest.skip("comparison target")
+    rng = np.random.default_rng(77)
+    n, B = 20, 3000
+    grp = (np.arange(n) % 2).astype(float)
+    m = Model(["density", "recip", "transTrip", "cycle3", ("sameX", "grp")], {"grp": grp})
+    theta = [-2.0, 1.2, 0.3, -0.2, 0.5]
+    X0 = random_network(B, n, 0.1, rng)
+    Xa = simulate_period(X0, theta, 3.0, m, np.random.default_rng(1))
+    Xb = simulate_period(X0, theta, 3.0, m, np.random.default_rng(2), backend=backend)
+    Sa, Sb = moments(X0, Xa, m), moments(X0, Xb, m)
+    se = np.sqrt(Sa.var(axis=0, ddof=1) / B + Sb.var(axis=0, ddof=1) / B)
+    z = (Sa.mean(axis=0) - Sb.mean(axis=0)) / se
+    assert np.all(np.abs(z) < 4.0), z
+    ratio = Sb.std(axis=0, ddof=1) / Sa.std(axis=0, ddof=1)
+    assert np.all((ratio > 0.85) & (ratio < 1.18)), ratio
+
+
+def test_reciprocity_increases_mutual_dyads(backend):
     rng = np.random.default_rng(0)
     m = Model(["density", "recip"])
     X0 = random_network(400, 15, 0.1, rng)
     mutual = []
     for beta in [-1.0, 0.0, 1.0, 2.0]:
-        X1 = simulate_period(X0, [-2.0, beta], 4.0, m, rng)
+        X1 = simulate_period(X0, [-2.0, beta], 4.0, m, rng, backend=backend)
         mutual.append(statistics(X1, Model(["recip"])).mean() / 2)
     assert all(np.diff(mutual) > 0)
 
 
-def test_homophily_increases_within_group_share():
+def test_homophily_increases_within_group_share(backend):
     rng = np.random.default_rng(0)
     n = 16
     grp = np.repeat([0.0, 1.0], n // 2)
@@ -453,7 +593,7 @@ def test_homophily_increases_within_group_share():
     X0 = random_network(400, n, 0.1, rng)
     share = []
     for beta in [0.0, 0.5, 1.0, 2.0]:
-        X1 = simulate_period(X0, [-2.0, beta], 4.0, m, rng)
+        X1 = simulate_period(X0, [-2.0, beta], 4.0, m, rng, backend=backend)
         share.append(statistics(X1, same_model).sum() / X1.sum())
     assert all(np.diff(share) > 0)
     assert abs(share[0] - (n / 2 - 1) / (n - 1)) < 0.03  # no homophily: chance level
@@ -472,12 +612,12 @@ def test_transitivity_increases_transitive_triplets():
     assert all(np.diff(tt) > 0)
 
 
-def test_degenerate_outcomes_are_returned_not_filtered():
+def test_degenerate_outcomes_are_returned_not_filtered(backend):
     rng = np.random.default_rng(0)
     m = Model(["density"])
     X0 = random_network(50, 8, 0.5, rng)
-    empty = simulate_period(X0, [-15.0], 20.0, m, rng)
-    full = simulate_period(X0, [15.0], 20.0, m, rng)
+    empty = simulate_period(X0, [-15.0], 20.0, m, rng, backend=backend)
+    full = simulate_period(X0, [15.0], 20.0, m, rng, backend=backend)
     assert empty.shape == X0.shape and empty.sum() == 0
     assert full.shape == X0.shape and full.sum() == 50 * 8 * 7
 
@@ -494,14 +634,16 @@ def test_parameter_validation():
         simulate_period(X0, [-1.0, 0.0], -1.0, m, rng)
     with pytest.raises(ValueError):
         simulate_period(X0[0], [-1.0, 0.0], 1.0, m, rng)
+    with pytest.raises(ValueError):
+        simulate_period(X0, [-1.0, 0.0], 1.0, m, rng, backend="cupy")
 
 
-def test_per_chain_rate():
+def test_per_chain_rate(backend):
     rng = np.random.default_rng(0)
     B, n = 400, 10
     X0 = random_network(B, n, 0.3, rng)
     rate = np.where(np.arange(B) < B // 2, 0.2, 3.0)
-    X1 = simulate_period(X0, [-0.85], rate, Model(["density"]), rng)
+    X1 = simulate_period(X0, [-0.85], rate, Model(["density"]), rng, backend=backend)
     ch = rate_statistic(X0, X1)
     assert ch[: B // 2].mean() < ch[B // 2 :].mean()
 
@@ -518,13 +660,13 @@ def test_simulate_panel_shapes_and_first_wave():
     assert np.all(P[:, :, np.arange(9), np.arange(9)] == 0)
 
 
-def test_simulate_panel_is_sequential_periods():
+def test_simulate_panel_is_sequential_periods(backend):
     m = Model(["density", "recip"])
     X0 = random_network(6, 9, 0.2, np.random.default_rng(0))
-    P = simulate_panel(X0, [-1.5, 0.5], 1.0, m, np.random.default_rng(42), waves=3)
+    P = simulate_panel(X0, [-1.5, 0.5], 1.0, m, np.random.default_rng(42), waves=3, backend=backend)
     rng = np.random.default_rng(42)
-    X1 = simulate_period(X0, [-1.5, 0.5], 1.0, m, rng)
-    X2 = simulate_period(X1, [-1.5, 0.5], 1.0, m, rng)
+    X1 = simulate_period(X0, [-1.5, 0.5], 1.0, m, rng, backend=backend)
+    X2 = simulate_period(X1, [-1.5, 0.5], 1.0, m, rng, backend=backend)
     assert np.array_equal(P[1], X1) and np.array_equal(P[2], X2)
 
 

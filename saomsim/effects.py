@@ -37,7 +37,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .backend import DTYPE, RowProducts
+from .backend import DTYPE, NUMPY, RowProducts
 
 STRUCTURAL = ("density", "recip", "transTrip", "cycle3")
 COVARIATE = ("sameX", "altX", "egoX")
@@ -84,6 +84,7 @@ class Model:
         for e in self.effects:
             if e.covariate is not None and e.covariate not in self.covariates:
                 raise KeyError(f"effect {e.label} refers to missing covariate {e.covariate!r}")
+        self._device_cov: dict = {}  # (backend name, device, covariate) -> device array
 
     @property
     def K(self) -> int:
@@ -105,21 +106,28 @@ class Model:
         return frozenset(out)
 
     # ------------------------------------------------------------------ helpers
-    def _cov(self, name: str, B: int) -> np.ndarray:
-        """Covariate as ``(B, n)``."""
-        v = self.covariates[name]
+    def _cov(self, name: str, B: int, backend=NUMPY):
+        """Covariate as a ``(B, n)`` array on ``backend`` (cached per device)."""
+        key = (backend.name, str(backend.device), name)
+        v = self._device_cov.get(key)
+        if v is None:
+            v = backend.covariate(self.covariates[name])
+            self._device_cov[key] = v
         if v.ndim == 1:
-            return np.broadcast_to(v, (B, v.shape[0]))
+            return backend.broadcast_to(v, (B, v.shape[0]))
         if v.shape[0] != B:
             raise ValueError(f"covariate {name!r} has batch {v.shape[0]}, expected {B}")
         return v
 
     # ------------------------------------------------------- change statistics
-    def creation_contributions(self, rows: RowProducts, actor: np.ndarray) -> np.ndarray:
+    # These methods are written against the backend interface only (no bare
+    # numpy calls) so the same code runs on numpy arrays and torch tensors.
+
+    def creation_contributions(self, rows: RowProducts, actor, backend=NUMPY):
         """``c_ijk`` for every candidate ``j``: shape ``(B, n, K)``."""
         B, n = rows.out_row.shape
-        out = np.empty((B, n, self.K), dtype=DTYPE)
-        arangeB = np.arange(B)
+        out = backend.empty((B, n, self.K))
+        arangeB = backend.arange(B)
         for k, e in enumerate(self.effects):
             if e.kind == "density":
                 out[:, :, k] = 1.0
@@ -130,30 +138,33 @@ class Model:
             elif e.kind == "cycle3":
                 out[:, :, k] = rows.back_path
             else:
-                v = self._cov(e.covariate, B)
+                v = self._cov(e.covariate, B, backend)
                 if e.kind == "sameX":
-                    out[:, :, k] = v == v[arangeB, actor][:, None]
+                    out[:, :, k] = backend.as_float(v == v[arangeB, actor][:, None])
                 elif e.kind == "altX":
                     out[:, :, k] = v
                 elif e.kind == "egoX":
                     out[:, :, k] = v[arangeB, actor][:, None]
         return out
 
-    def change_statistics(self, rows: RowProducts, actor: np.ndarray) -> np.ndarray:
+    def change_statistics(self, rows: RowProducts, actor, backend=NUMPY):
         """``delta_ijk`` for every candidate ``j``: shape ``(B, n, K)``. Diagonal is 0."""
-        c = self.creation_contributions(rows, actor)
+        c = self.creation_contributions(rows, actor, backend)
         sign = 1.0 - 2.0 * rows.out_row
         delta = c * sign[:, :, None]
-        delta[np.arange(rows.out_row.shape[0]), actor, :] = 0.0
+        delta[backend.arange(rows.out_row.shape[0]), actor, :] = 0.0
         return delta
 
-    def objective(self, rows: RowProducts, actor: np.ndarray, theta: np.ndarray) -> np.ndarray:
-        """``f_ij = sum_k theta_k delta_ijk``; ``theta`` is ``(B, K)`` or ``(K,)``."""
-        delta = self.change_statistics(rows, actor)
-        theta = np.asarray(theta, dtype=DTYPE)
+    def objective(self, rows: RowProducts, actor, theta, backend=NUMPY):
+        """``f_ij = sum_k theta_k delta_ijk`` for ``theta`` of shape ``(B, K)`` or ``(K,)``."""
+        delta = self.change_statistics(rows, actor, backend)
+        if not hasattr(theta, "ndim"):
+            theta = backend.array(theta)
         if theta.ndim == 1:
             return delta @ theta
-        return (delta @ theta[:, :, None])[:, :, 0]
+        # multiply-reduce rather than a (B, n, K) @ (B, K, 1) bmm: torch routes that
+        # tiny inner dimension to a Triton JIT kernel, which needs a C toolchain
+        return (delta * theta[:, None, :]).sum(axis=-1)
 
     # ------------------------------------------------------- target statistics
     def statistics(self, X: np.ndarray) -> np.ndarray:

@@ -103,6 +103,7 @@ def estimate(
     tol: float = 0.1,
     n_final: int | None = None,
     min_rate: float = 0.02,
+    backend="numpy",
     verbose: bool = False,
 ) -> EstimateResult:
     """Simulated method of moments for ``P`` panels ``X0 -> X1``.
@@ -133,7 +134,7 @@ def estimate(
 
     def simulate_mean(th: np.ndarray, seed: int) -> tuple[np.ndarray, np.ndarray]:
         r = np.random.default_rng(seed)
-        X1s = simulate_period(X0rep, th[1:], th[0], model, r)
+        X1s = simulate_period(X0rep, th[1:], th[0], model, r, backend=backend)
         S = moments(X0rep, X1s, model)
         return S.mean(axis=0), S
 
@@ -186,7 +187,8 @@ def estimate(
     X0fin = np.repeat(X0, n_final, axis=0)
     seed = int(rng.integers(0, 2**63 - 1))
     r = np.random.default_rng(seed)
-    S = moments(X0fin, simulate_period(X0fin, theta[1:], theta[0], model, r), model)
+    X1fin = simulate_period(X0fin, theta[1:], theta[0], model, r, backend=backend)
+    S = moments(X0fin, X1fin, model)
     simulated = S.mean(axis=0)
     stat_cov = np.cov(S, rowvar=False)
     sd = np.sqrt(np.diag(stat_cov)) + 1e-12

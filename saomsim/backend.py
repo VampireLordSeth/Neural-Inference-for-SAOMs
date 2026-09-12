@@ -1,9 +1,13 @@
-"""Array-layout kernels.
+"""Array-layout kernels (NumPy) and the backend interface.
 
 Everything that knows a batch of networks is a ``(B, n, n)`` array with a zero
 diagonal, and that ``actor`` is a ``(B,)`` integer array naming the focal actor
-of each chain, lives here. Nothing else in the package indexes into the network
-layout directly, so a torch port only has to replace this module.
+of each chain, lives in a backend. Nothing else in the package indexes into the
+network layout directly. ``NumpyBackend`` wraps the module-level kernels below;
+``backend_torch.TorchBackend`` implements the same interface on torch tensors.
+
+Use ``get_backend("numpy")``, ``get_backend("torch")`` (default device: CUDA if
+available), ``get_backend("torch:cpu")`` or pass a backend instance.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 
 DTYPE = np.float64
+OUT_DTYPE = np.int8
 ALL_PRODUCTS = frozenset({"two_path", "shared_out", "back_path"})
 
 
@@ -25,13 +30,18 @@ class RowProducts:
     two_path[b, j]   = sum_h x_ih x_hj        i -> h -> j
     shared_out[b, j] = sum_h x_ih x_jh        i -> h <- j
     back_path[b, j]  = sum_h x_jh x_hi        j -> h -> i
+
+    Derived products not requested via ``needs`` are ``None``.
     """
 
-    out_row: np.ndarray
-    in_col: np.ndarray
-    two_path: np.ndarray | None
-    shared_out: np.ndarray | None
-    back_path: np.ndarray | None
+    out_row: object
+    in_col: object
+    two_path: object
+    shared_out: object
+    back_path: object
+
+
+# --------------------------------------------------------------- numpy kernels
 
 
 def batched_row_products(
@@ -100,3 +110,98 @@ def zero_diagonal(X: np.ndarray) -> np.ndarray:
     idx = np.arange(X.shape[-1])
     X[..., idx, idx] = 0
     return X
+
+
+# ------------------------------------------------------------ backend objects
+
+
+class NumpyBackend:
+    """The reference backend. Every method here has a twin in ``TorchBackend``.
+
+    Arrays handed to the model (``network``, ``array``, ``covariate``) live on
+    this backend; ``to_numpy`` brings anything back.
+    """
+
+    name = "numpy"
+    device = "cpu"
+    dtype = DTYPE
+
+    # -- conversion
+    def network(self, X0) -> np.ndarray:
+        """Float working copy of a ``(B, n, n)`` 0/1 array."""
+        return np.array(X0, dtype=DTYPE, copy=True)
+
+    def array(self, a) -> np.ndarray:
+        return np.asarray(a, dtype=DTYPE)
+
+    def int_array(self, a) -> np.ndarray:
+        return np.asarray(a, dtype=np.int64)
+
+    def covariate(self, v) -> np.ndarray:
+        return np.asarray(v, dtype=DTYPE)
+
+    def to_numpy(self, a) -> np.ndarray:
+        return np.asarray(a)
+
+    def finalize(self, X) -> np.ndarray:
+        return X.astype(OUT_DTYPE)
+
+    # -- construction
+    def empty(self, shape) -> np.ndarray:
+        return np.empty(shape, dtype=DTYPE)
+
+    def arange(self, n: int) -> np.ndarray:
+        return np.arange(n)
+
+    def broadcast_to(self, a, shape):
+        return np.broadcast_to(a, shape)
+
+    def as_float(self, a):
+        return a.astype(DTYPE)
+
+    # -- randomness: the numpy Generator is the state
+    def rng_state(self, rng: np.random.Generator):
+        return rng
+
+    def integers(self, n: int, B: int, state) -> np.ndarray:
+        return state.integers(0, n, size=B)
+
+    def random(self, B: int, state) -> np.ndarray:
+        return state.random(B)
+
+    # -- kernels
+    def row_products(self, X, actor, needs=ALL_PRODUCTS) -> RowProducts:
+        return batched_row_products(X, actor, needs)
+
+    def softmax(self, f):
+        return softmax(f)
+
+    def categorical_sample(self, p, u):
+        return categorical_sample(p, u)
+
+    def toggle(self, X, actor, target, active) -> None:
+        toggle(X, actor, target, active)
+
+    def hamming(self, X, Y):
+        """Per-chain number of differing entries: ``(B,)`` int."""
+        return (X != Y).sum(axis=(1, 2))
+
+    def __repr__(self) -> str:
+        return "NumpyBackend()"
+
+
+NUMPY = NumpyBackend()
+
+
+def get_backend(spec="numpy"):
+    """Resolve ``"numpy"``, ``"torch"``, ``"torch:<device>"`` or a backend instance."""
+    if not isinstance(spec, str):
+        return spec
+    if spec == "numpy":
+        return NUMPY
+    if spec == "torch" or spec.startswith("torch:"):
+        from .backend_torch import TorchBackend
+
+        device = spec.partition(":")[2] or None
+        return TorchBackend(device=device)
+    raise ValueError(f"unknown backend {spec!r}")

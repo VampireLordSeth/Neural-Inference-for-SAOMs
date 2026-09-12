@@ -29,11 +29,38 @@ print(res.table())
 (`theta` of shape `(K,)`) or per chain (`(B, K)`), which is what the training
 data generator needs.
 
+### Backends
+
+```python
+simulate_period(X0, theta, 3.0, model, rng)                      # numpy (default)
+simulate_period(X0, theta, 3.0, model, rng, backend="torch")     # torch, CUDA if available
+from saomsim.backend_torch import TorchBackend
+bk = TorchBackend("cuda", dtype=torch.float32)                   # fastest
+simulate_period(X0, theta, 3.0, model, rng, backend=bk)
+```
+
+The Poisson ministep count always comes from the numpy `Generator`, so a seed
+fixes the ministep schedule on every backend; the in-loop draws use a torch
+`Generator` seeded from it. Inputs and outputs are numpy on every backend.
+The whole test suite runs against each backend (`backend` fixture in
+`conftest.py`; `SAOMSIM_TORCH_DEVICE`, `SAOMSIM_TORCH_DTYPE` select device
+and dtype).
+
+### Stopping rules
+
+```python
+simulate_period(X0, theta, rate=3.0, ...)        # Poisson(n * rate) ministeps (RSiena cond=FALSE)
+simulate_period(X0, theta, n_steps=200, ...)     # exactly 200 ministeps
+simulate_period(X0, theta, distance=115, ...)    # until Hamming(X, X0) == 115 (RSiena cond=TRUE)
+X1, info = simulate_period(..., return_info=True)  # info.n_steps, info.n_changes, info.reached
+```
+
 ## Layout
 
 | file | role |
 |---|---|
-| `backend.py` | the only module that indexes into the `(B, n, n)` layout: row products, softmax, inverse-CDF sampling, toggle. Torch port replaces this file. |
+| `backend.py` | NumPy kernels and the backend interface (`NumpyBackend`, `get_backend`): row products, softmax, inverse-CDF sampling, toggle, Hamming distance. The only place that indexes into the `(B, n, n)` layout. |
+| `backend_torch.py` | `TorchBackend`: the same interface on torch tensors, any device, float64 or float32 |
 | `effects.py` | `Effect`, `Model`; vectorized change statistics and target statistics for `density`, `recip`, `transTrip`, `cycle3`, `sameX`, `altX`, `egoX` |
 | `reference.py` | the same statistics as explicit loops on a single network. Slow. Sacred. |
 | `simulate.py` | `simulate_period`, `simulate_panel`, `random_network`, `rate_statistic`, `statistics` |
@@ -71,9 +98,10 @@ so pass centred values for `altX`/`egoX` if you want to match its numbers.
 ## Verification
 
 ```
-pytest -q -m "not slow"   # 98 tests, ~8 s  (includes benchmarks/)
-pytest -q                 # + 1 recovery test, ~17 s
+pytest -q -m "not slow"   # 105 tests numpy-only; 160 with torch installed (~10 s)
+pytest -q                 # + 1 recovery test
 python examples/quickstart.py
+python benchmarks/throughput.py
 ```
 
 The tests that carry the weight:
@@ -92,7 +120,10 @@ The tests that carry the weight:
 - `benchmarks/test_rsiena_dynamics.py` — distribution of simulated statistics
   from s501 at fixed θ matches RSiena's own simulator (means within Monte Carlo
   error, spreads within 5 %). This is what licenses the phrase "agrees with
-  RSiena" for the model class implemented here.
+  RSiena" for the model class implemented here. Runs on every backend.
+- `test_backends_agree_in_distribution` — torch vs numpy at the same θ.
+- `test_conditional_simulation_stops_at_observed_distance` — the `distance`
+  rule yields exactly the observed Hamming distance, per chain.
 
 ## A result worth noticing
 
@@ -105,14 +136,26 @@ parameters, and any estimator, neural or classical, will report wide
 uncertainty on it. If the amortized posterior looks wide on single panels,
 check its calibration before assuming it is under-trained.
 
-## Throughput (CPU, this laptop)
+## Throughput
 
-`density + recip + transTrip`, rate 3, float64:
+`density + recip + transTrip`, rate 3, panels/s, best of 2 after warm-up
+(`benchmarks/throughput.py`). Laptop = Windows x86 (numpy). Spark = DGX Spark,
+GB10, aarch64.
 
-| n | B | panels/s |
-|---|---|---|
-| 30 | 4000 | ~2,800 |
-| 100 | 400 | ~210 |
+| n | B | laptop numpy | Spark numpy | Spark CUDA f64 | Spark CUDA f32 |
+|---|---|---|---|---|---|
+| 30 | 1000 | | 9,202 | 32,543 | 32,916 |
+| 30 | 4000 | ~2,800 | 5,240 | 57,383 | **122,671** |
+| 30 | 16000 | | 4,912 | 55,638 | 108,747 |
+| 100 | 400 | ~210 | 414 | 2,182 | 4,535 |
+| 100 | 2000 | | 367 | 2,954 | **5,096** |
+| 200 | 500 | | 108 | 494 | 717 |
 
-Per-ministep cost is dominated by Python/NumPy overhead at n = 30 and by the
-batched matvecs at n = 100. Wider batches help more than anything else.
+CUDA float32 is 23x Spark numpy at n = 30 and 14x at n = 100. At n = 30 the
+GPU is launch-bound (~20 small kernels per ministep), so the gain comes from
+batch width up to B ≈ 4000 and flattens after; CUDA graphs or `torch.compile`
+would be the next lever. At n = 200 the batched matvecs dominate and the gap
+narrows to 7x. Torch on CPU is slower than numpy here and is not a target.
+
+float32 passes the full suite (reference comparisons, exact chain, RSiena
+dynamics); use it for training-data generation, float64 for validation runs.

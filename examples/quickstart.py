@@ -57,11 +57,24 @@ print(f"estimated in {time.perf_counter() - t0:.1f}s\n")
 print(res.table(truth))
 
 # ------------------------------------------------------------------- throughput
-print("\n== throughput (CPU, density+recip+transTrip, rate=3) ==")
+print("\n== throughput (density+recip+transTrip, rate=3; see benchmarks/throughput.py) ==")
 m = Model(["density", "recip", "transTrip"])
-for n_, B_ in [(30, 4000), (100, 400)]:
-    X0 = random_network(B_, n_, 0.1, rng)
-    t0 = time.perf_counter()
-    simulate_period(X0, [-2.0, 1.0, 0.2], 3.0, m, rng)
-    dt = time.perf_counter() - t0
-    print(f"n={n_:>3}  B={B_:>5}  {B_ / dt:>8,.0f} panels/s")
+backends = ["numpy"]
+try:
+    import torch  # noqa: F401
+
+    backends.append("torch")
+except ImportError:
+    pass
+for bk in backends:
+    for n_, B_ in [(30, 4000), (100, 400)]:
+        X0 = random_network(B_, n_, 0.1, rng)
+        simulate_period(X0, [-2.0, 1.0, 0.2], 3.0, m, rng, backend=bk)  # warm-up
+        t0 = time.perf_counter()
+        simulate_period(X0, [-2.0, 1.0, 0.2], 3.0, m, rng, backend=bk)
+        dt = time.perf_counter() - t0
+        print(f"{bk:<6} n={n_:>3}  B={B_:>5}  {B_ / dt:>8,.0f} panels/s")
+print(
+    "\nRead panels/s as the training-set budget: 10^5-10^6 simulated panels divided by"
+    "\nthis number is the wall clock for generating the neural estimator's data."
+)
