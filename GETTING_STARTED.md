@@ -31,7 +31,7 @@ saom-amortized/
 ```
 
 All of this exists. The repo is initialised as its own git repository — note
-that `C:\Users\IG-88` is *also* a git repository, so a `git add -A` from the
+that the home directory on the development laptop is *also* a git repository, so a `git add -A` from the
 wrong directory would try to stage the whole home directory. Always run git
 from inside this folder.
 
@@ -251,7 +251,7 @@ The original brief, kept for the record:
 
 Only after §5 passes.
 
-The target machine is the DGX Spark (`ssh spark`, 192.168.1.49, GB10,
+The target machine is a DGX Spark (`ssh spark` alias in `~/.ssh/config`, GB10,
 aarch64). It has torch 2.13+cu130 with CUDA in `~/spark-env`. Do **not** develop
 in that venv: create a torch-free `.venv` in the project there too, so the
 validation suite stays GPU-independent, and add torch to a second env:

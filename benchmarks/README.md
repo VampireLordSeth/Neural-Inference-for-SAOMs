@@ -62,3 +62,12 @@ same way.
   composition change, behaviour co-evolution. None are implemented in saomsim.
 - Effects beyond the seven implemented. Adding one means: loop reference,
   parametrized reference test, *and* a row in `rsiena_compare.R`.
+
+## Data provenance
+
+`s501.csv`, `s502.csv`, `s503.csv` (friendship networks, three waves, n = 50),
+`s50a.csv` (alcohol use) and `s50_covariates.csv` (alcohol, smoking at wave 1)
+are the **s50** example data distributed with the RSiena R package (GPL-3), an
+excerpt of the Teenage Friends and Lifestyle Study (Michell & West; Pearson &
+West). They are redistributed here unchanged, as CSV, solely so that the parity
+tests run without R. Cite RSiena / the original study when using them.
