@@ -315,7 +315,12 @@ bandwidth is modest, so treat it as a throughput box.
    the ridge bias vanishes: 6/8 parameters clean, coverage nominal, all
    RSiena estimates within 0.8 sd on s50. Learned embedding (`saomsim/embedding.py`)
    resolves cycle3 and is sharper but needs a streaming loader for 10⁷.
-   Next: OOD characterisation (paper §4); embedding at 10⁷.
+8. OOD characterisation done 2026-09-13 (`docs/OOD_RESULTS.md`): n=15 gives
+   wide but calibrated posteriors; n=110 mildly over-confident and always
+   flagged; off-scale covariates collapse coverage but are flagged 100%; θ
+   beyond the box piles on the face; unobserved homophily biases density
+   +2 sd and is invisible to screening (needs PPC). s50 screens in-distribution.
+   Next: embedding at 10⁷ (streaming loader, n-normalised pooling); M3/M4.
 
 ## 8. Conventions worth keeping
 
