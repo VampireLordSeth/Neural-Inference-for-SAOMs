@@ -324,7 +324,13 @@ bandwidth is modest, so treat it as a throughput box.
    per-period rates, shared effects; 10⁶ panels; coverage nominal within
    1–3 pts across n; all nine RSiena three-wave estimates within 1.13 sd on
    s50, with the posterior tightening in step with RSiena's s.e. M3b design
-   in `docs/PRIORS_M3b.md`. Next: M3b simulator + RSiena gate; 10⁷ three-wave.
+   in `docs/PRIORS_M3b.md`.
+10. M3b (co-evolution) done 2026-09-13 (`docs/M3_RESULTS.md`, second part):
+    joint simulator gated against RSiena (targets 4e-14, dynamics |z| ≤ 2);
+    14-parameter estimator on 10⁶ panels, coverage nominal for all 14, all
+    RSiena s50 estimates inside the 90% intervals; selection and influence both
+    recovered, posterior correlation −0.14. Next: 10⁷ co-evolution (GPU-side
+    summaries first), M4 application.
 
 ## 8. Conventions worth keeping
 

@@ -83,3 +83,93 @@ two-wave estimator applied to each period — is a cheap diagnostic to add.
 Next for M3: (a) 10⁷ three-wave panels to remove the residual tilts;
 (b) M3b, behaviour co-evolution (`docs/PRIORS_M3b.md`), which is a simulator
 extension with its own RSiena gate.
+
+---
+
+# M3b result: network–behaviour co-evolution (selection versus influence)
+
+Design: `docs/PRIORS_M3b.md`. Run 2026-09-13. Artefacts: `data/train_coev3.npz`,
+`data/npe_coev3.pt`, `data/npe_coev3_sbc_pop.{npz,png}`, `data/npe_coev3_posterior_s50.npz`.
+Script: `benchmarks/npe_coev.py` (generate / train / sbc / s50).
+
+## Gate (closed before any estimator)
+
+- All 14 of RSiena's per-period target statistics for the s50 network × alcohol
+  model reproduced to 4 × 10⁻¹⁴ (`benchmarks/test_rsiena_coevolution.py`). Three
+  conventions had to be found empirically: behaviour centred by the grand mean over
+  all waves; `simMean` averaged over *period-start* waves only; targets
+  cross-lagged (behaviour statistics use end-of-period behaviour with the
+  start-of-period network, selection statistics the reverse).
+- The joint simulator matches RSiena's `siena07(simOnly = TRUE)` at fixed θ on all
+  12 network and behaviour statistics (2,000 vs 4,000 draws: |z| ≤ 2.0, sd ratios
+  0.99–1.03).
+
+## Set-up
+
+| | |
+|---|---|
+| θ | rate_net₁, rate_net₂, rate_beh₁, rate_beh₂, density, recip, transTrip, cycle3, egoZ, altZ, simZ (selection), linear, quad, avAlt (influence): **14 parameters** |
+| population | M2 starts and sizes; behaviour on {1..z_max}, z_max ∈ {3,4,5}, unimodal start; centring constants from the start behaviour and passed as inputs |
+| training set | 10⁶ three-wave joint panels, 66 min (252 panels/s; a joint 3-wave panel has ~3× the ministeps of a 2-wave network-only one) |
+| summaries | 62: n, z_max, zbar, simMean; X0 block + selection targets + z0 descriptives; per period: network block, selection targets, behaviour change count, behaviour targets, z descriptives |
+| estimator | NSF 8 × 128, batch 1024; 121 epochs, 146 min (GPU shared with the 10⁷ M3a run) |
+
+s50's three-wave co-evolution vector sits inside the population on all 62
+summaries (percentiles 0.09–0.98).
+
+## Calibration across the population (fresh 4,000 draws, n ∈ [20, 80], z_max ∈ {3,4,5})
+
+![M3b SBC ranks](figures/m3b_sbc_ranks_population.png)
+
+Coverage of central intervals is **nominal within 1.6 points for all 14
+parameters** (worst: rate_net₁ 90 % at 0.884). Mean ranks 0.475–0.519. KS flags
+transTrip (0.475, the closure tilt seen in every 10⁶ model), rate_beh₁ (0.519),
+altZ (0.509) and rate_net₂ (0.512) at p < 0.05; the other ten are clean. The two
+substantive parameters are clean: **simZ 0.499 (KS p 0.66), avAlt 0.497 (p 0.61)**.
+No systematic drift with n.
+
+## Real data: s50 network × alcohol, three waves, vs RSiena
+
+| parameter | RSiena est ± se | M3b mean ± sd | M3b 90 % | (RS − M3b)/sd |
+|---|---|---|---|---|
+| rate_net₁ | 6.53 ± 1.07 | 5.26 ± 0.98 | [3.94, 7.05] | 1.29 |
+| rate_net₂ | 5.15 ± 0.84 | 4.36 ± 0.68 | [3.38, 5.53] | 1.16 |
+| rate_beh₁ | 1.32 ± 0.39 | 1.24 ± 0.32 | [0.80, 1.81] | 0.25 |
+| rate_beh₂ | 1.78 ± 0.45 | 2.45 ± 0.89 | [1.36, 4.25] | −0.75 |
+| density | −2.76 ± 0.15 | −2.97 ± 0.18 | [−3.28, −2.67] | 1.12 |
+| recip | 2.39 ± 0.22 | 2.60 ± 0.27 | [2.17, 3.06] | −0.76 |
+| transTrip | 0.66 ± 0.15 | 0.64 ± 0.18 | [0.36, 0.94] | 0.12 |
+| cycle3 | −0.10 ± 0.30 | −0.03 ± 0.31 | [−0.58, 0.42] | −0.23 |
+| egoZ | 0.05 ± 0.11 | 0.17 ± 0.16 | [−0.08, 0.44] | −0.75 |
+| altZ | −0.06 ± 0.11 | −0.13 ± 0.18 | [−0.43, 0.14] | 0.40 |
+| **simZ (selection)** | **1.42 ± 0.64** | **2.44 ± 0.79** | [1.10, 3.70] | −1.29 |
+| linear | 0.42 ± 0.24 | 0.46 ± 0.30 | [0.02, 1.02] | −0.13 |
+| quad | −0.60 ± 0.35 | −1.00 ± 0.30 | [−1.42, −0.43] | 1.30 |
+| **avAlt (influence)** | **1.33 ± 0.86** | **2.70 ± 0.91** | [1.05, 3.90] | −1.50 |
+
+- **All 14 RSiena estimates lie inside the M3b 90 % intervals**; max |z| 1.50.
+- **Both mechanisms are recovered as present**: the posterior puts selection on
+  similarity (simZ) and influence (avAlt) clearly above zero — the 90 % intervals
+  exclude zero for both, as RSiena's ±2 s.e. roughly do. The amortized posterior
+  places both somewhat higher than RSiena (by 1.3–1.5 sd); given the 10⁶ rate
+  under-reads seen in every other 10⁶ model here, and their disappearance at 10⁷,
+  a 10⁷ co-evolution run is the natural next check before reading anything into
+  the difference.
+- **Selection and influence are only weakly correlated in the posterior
+  (r = −0.14).** The cross-lagged design (network changes read against start-of-
+  period behaviour, behaviour changes against start-of-period network) separates
+  the two mechanisms, and the amortized posterior shows that directly — the
+  identification argument of Steglich, Snijders & Pearson (2010) made visible as
+  posterior geometry.
+- Per fit: **0.6 s** for a 14-parameter joint posterior, against RSiena's 31 s.
+
+## What this establishes
+
+The full co-evolution SAOM — the model class the paper plan's M3 names and the
+one behind the selection-versus-influence literature — runs in the same amortized
+framework: a validated joint simulator, a calibrated 14-parameter posterior across
+sizes, behaviour scales and starts, and agreement with RSiena on the canonical
+dataset. Milestones M0–M3 of the plan now all have results.
+
+Next: the 10⁷ co-evolution set (≈ 11 h of generation at the current rate — the
+CPU-side summaries are the bottleneck to move to the GPU first), and M4.

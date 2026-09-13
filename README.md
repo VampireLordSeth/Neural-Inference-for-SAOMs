@@ -62,7 +62,7 @@ unvalidated step.
 | **M2 — Generalization** | One estimator for *any* start network with 20–80 actors and any covariate layout. With 10⁷ training panels it is calibrated across the whole range and, on a real dataset it never saw, lands within 0.8 standard deviations of RSiena on every parameter. | done · `docs/M2_RESULTS.md` |
 | **Out-of-distribution envelope** | What happens when a dataset falls outside the training population, and a one-line screen that catches most such cases. | done · `docs/OOD_RESULTS.md` |
 | **M3a — Multiple waves** | Three observation waves, one rate per period. Matches RSiena's three-wave fit; the posterior tightens with the extra wave just as RSiena's standard errors do. | done · `docs/M3_RESULTS.md` |
-| **M3b — Selection vs influence** | Networks and a behaviour (e.g. alcohol use) evolving together. Simulator built and validated against RSiena; estimator training in progress. | in progress · `docs/PRIORS_M3b.md` |
+| **M3b — Selection vs influence** | Networks and a behaviour (e.g. alcohol use) evolving together. Simulator validated against RSiena; a 14-parameter estimator is calibrated across sizes and behaviour scales and agrees with RSiena on the classic alcohol-and-friendship data, recovering both selection and influence. | done · `docs/M3_RESULTS.md` |
 | **M4 — Application** | Many networks at once, at a scale existing tools cannot reach. | planned |
 
 Headline numbers so far:
