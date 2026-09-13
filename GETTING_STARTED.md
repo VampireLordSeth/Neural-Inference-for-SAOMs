@@ -320,7 +320,11 @@ bandwidth is modest, so treat it as a throughput box.
    flagged; off-scale covariates collapse coverage but are flagged 100%; θ
    beyond the box piles on the face; unobserved homophily biases density
    +2 sd and is invisible to screening (needs PPC). s50 screens in-distribution.
-   Next: embedding at 10⁷ (streaming loader, n-normalised pooling); M3/M4.
+9. M3a (three waves) done 2026-09-13 (`docs/PRIORS_M3.md`, `docs/M3_RESULTS.md`):
+   per-period rates, shared effects; 10⁶ panels; coverage nominal within
+   1–3 pts across n; all nine RSiena three-wave estimates within 1.13 sd on
+   s50, with the posterior tightening in step with RSiena's s.e. M3b design
+   in `docs/PRIORS_M3b.md`. Next: M3b simulator + RSiena gate; 10⁷ three-wave.
 
 ## 8. Conventions worth keeping
 
