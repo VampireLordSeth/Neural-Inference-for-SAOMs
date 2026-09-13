@@ -1,166 +1,160 @@
-# saomsim
+# Neural Inference for SAOMs
 
-Batched NumPy simulator for stochastic actor-oriented models (SAOMs, the model
-family behind RSiena), with reference implementations, a method-of-moments
-estimator, and a test suite that checks every vectorized kernel against a
-loop-based reference and the ministep dynamics against an exact Markov chain.
+**Teaching a neural network to read social-network change — so that fitting a
+model to a new network takes a fraction of a second instead of a fresh
+simulation run every time.**
 
-Milestone M0 of the amortized neural inference project. See
-[GETTING_STARTED.md](GETTING_STARTED.md) for setup and the working order, and
-[docs/PRIORS.md](docs/PRIORS.md) for the prior the first estimator is trained
-under (fixed empirical start `X0 = s501`; box prior; prior predictive check).
+This repository holds the code, experiments and write-ups for a research
+project on *amortized neural inference for stochastic actor-oriented models*.
+Everything here is open: the simulator, the validation against the standard
+software, the trained-estimator experiments, and the documents that record
+each design decision before it was made.
 
-## What it does
+---
+
+## The problem in plain terms
+
+Social scientists often observe the same group of people at several points in
+time and ask *why* the ties between them changed. Did people befriend those
+who were already friends of their friends? Did they pick friends who behave
+like them, or start behaving like the friends they picked? A **stochastic
+actor-oriented model (SAOM)** answers these questions by treating network
+change as a series of small decisions by the people involved, and estimating
+how strongly each mechanism — reciprocity, transitive closure, homophily,
+influence — shaped those decisions.
+
+SAOMs are the standard tool for this (the R package **RSiena** implements
+them), but fitting one is expensive. There is no formula for the likelihood, so
+RSiena estimates parameters by *simulating* the network forward thousands of
+times and nudging the parameters until the simulations resemble the data. That
+loop runs afresh for **every** network you analyse, takes seconds to minutes,
+and can fail to converge. In practice this limits most studies to a handful of
+networks. Comparing mechanisms across hundreds of classrooms, teams or online
+communities — the kind of question the field would like to ask — is out of
+reach.
+
+## The idea
+
+Instead of searching for parameters one network at a time, **learn the inverse
+map once.** We use the simulator as an unlimited source of training examples:
+draw plausible parameters, simulate a network panel, and record the pair. A
+neural network (a *normalizing flow*) is trained on millions of such pairs to
+turn an observed panel into a full probability distribution over the
+parameters that could have produced it — a Bayesian posterior.
+
+After training, analysing a new network is a single forward pass: about a
+tenth of a second, no simulation loop, and you get uncertainty for free. The
+up-front cost is paid once and shared across every network you analyse
+afterwards — hence *amortized*. This approach is well established in physics
+and biology (it is called simulation-based inference) and has recently been
+applied to cross-sectional network models; to our knowledge this is its first
+application to longitudinal actor-oriented models.
+
+## What has been built and shown
+
+The work follows a milestone plan in which nothing downstream depends on an
+unvalidated step.
+
+| milestone | what it is | status |
+|---|---|---|
+| **M0 — Simulator** | A fast, batched SAOM simulator (NumPy and GPU/PyTorch backends). Checked against RSiena on the standard `s50` teenage-friendship data: every statistic matches to the last digit, and simulated networks from both simulators have the same distribution. | done · `benchmarks/README.md` |
+| **M1 — Proof of concept** | An estimator for one dataset (fixed start network). Trained on 10⁶ simulated panels; its posterior agrees with RSiena's estimates on all eight parameters and passes calibration checks. | done · `docs/M1_RESULTS.md` |
+| **M2 — Generalization** | One estimator for *any* start network with 20–80 actors and any covariate layout. With 10⁷ training panels it is calibrated across the whole range and, on a real dataset it never saw, lands within 0.8 standard deviations of RSiena on every parameter. | done · `docs/M2_RESULTS.md` |
+| **Out-of-distribution envelope** | What happens when a dataset falls outside the training population, and a one-line screen that catches most such cases. | done · `docs/OOD_RESULTS.md` |
+| **M3a — Multiple waves** | Three observation waves, one rate per period. Matches RSiena's three-wave fit; the posterior tightens with the extra wave just as RSiena's standard errors do. | done · `docs/M3_RESULTS.md` |
+| **M3b — Selection vs influence** | Networks and a behaviour (e.g. alcohol use) evolving together. Simulator built and validated against RSiena; estimator training in progress. | in progress · `docs/PRIORS_M3b.md` |
+| **M4 — Application** | Many networks at once, at a scale existing tools cannot reach. | planned |
+
+Headline numbers so far:
+
+- **Speed.** Simulating one network period at n = 30 runs at ~120,000 panels
+  per second on a single DGX Spark GPU; a million training panels takes a few
+  minutes. Analysing a new dataset with a trained estimator takes ~0.1 s,
+  against 11–30 s for RSiena's iterative fit.
+- **Agreement.** On the `s50` benchmark data the amortized posterior contains
+  RSiena's estimate for every parameter, in the two-wave, three-wave and
+  general-population settings.
+- **Honesty.** Calibration is tested by simulation-based calibration and
+  coverage on thousands of held-out simulations; where the estimator is not
+  perfect (a small bias on one parameter, a mild size dependence) the
+  documents say so and show the data.
+- **Failure modes.** Off-scale inputs are flagged automatically; a badly
+  misspecified model is *not* — and the write-up explains why that is true of
+  every method and what check catches it (posterior predictive checks, which
+  the amortized posterior makes nearly free).
+
+## How to read this repository
+
+- **`docs/`** — the story, in order. `PRIORS*.md` files record each design
+  decision *before* the corresponding experiment (what the training
+  distribution is, why those ranges, what would count as failure). `*_RESULTS.md`
+  files report what happened, including negative results.
+- **`saomsim/`** — the Python package: the simulator (`simulate.py`,
+  `effects.py`, `behaviour.py`), the array backends (`backend.py`,
+  `backend_torch.py`), the slow-but-obviously-correct reference
+  implementations every kernel is tested against (`reference.py`), two
+  classical estimators for comparison (`estimate.py`), the training-set
+  machinery (`prior.py`, `population*.py`) and a learned graph embedding
+  (`embedding.py`).
+- **`benchmarks/`** — the RSiena comparisons (R scripts and their exported
+  results, plus Python tests that reproduce them without R), the training
+  and evaluation scripts for each milestone, and the `s50` example data.
+- **`tests/`** — the test suite (~150 tests, run against both backends).
+- **`GETTING_STARTED.md`** — setup and the working log.
+- **`legacy/v0/`** — the original prototype, kept for the record.
+
+## Try it
+
+```bash
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"                                  # NumPy only; add ".[torch]" for the GPU backend
+pytest -q -m "not slow"
+python examples/quickstart.py
+```
+
+`examples/quickstart.py` simulates networks, shows that reciprocity and
+homophily parameters do what their names say, and recovers known parameters
+with the classical method-of-moments estimator. The neural estimators are
+trained with the scripts in `benchmarks/` (see the docstring at the top of
+each); trained models and training sets are not stored in git.
+
+Minimal use of the simulator:
 
 ```python
 import numpy as np
-from saomsim import Model, random_network, simulate_period, statistics, estimate
+from saomsim import Model, random_network, simulate_period, statistics
 
 rng = np.random.default_rng(0)
-grp = np.repeat([0.0, 1.0], 15)
-model = Model(["density", "recip", "transTrip", ("sameX", "grp")], {"grp": grp})
-
-X0 = random_network(B=1000, n=30, density=0.08, rng=rng)        # (B, n, n) int8
-X1 = simulate_period(X0, theta=[-2.2, 1.2, 0.35, 0.6], rate=3.0, model=model, rng=rng)
-S = statistics(X1, model)                                        # (B, K) target statistics
-res = estimate(X0[:200], X1[:200], model, rng)                   # method of moments, 200 panels
-res1 = estimate_rm(X0[0], X1[0], model, rng)                     # Robbins-Monro, one panel
-print(res.table(), res1.table())
+model = Model(["density", "recip", "transTrip"])
+X0 = random_network(B=1000, n=30, density=0.08, rng=rng)                 # 1000 start networks
+X1 = simulate_period(X0, theta=[-2.2, 1.2, 0.35], rate=3.0, model=model, rng=rng)
+S = statistics(X1, model)                                                  # (1000, 3) statistics
 ```
 
-`B` chains run in lockstep on `(B, n, n)` arrays. Parameters may be shared
-(`theta` of shape `(K,)`) or per chain (`(B, K)`), which is what the training
-data generator needs.
+Add `backend="torch"` to run on a GPU.
 
-### Backends
+## Conventions worth knowing
 
-```python
-simulate_period(X0, theta, 3.0, model, rng)                      # numpy (default)
-simulate_period(X0, theta, 3.0, model, rng, backend="torch")     # torch, CUDA if available
-from saomsim.backend_torch import TorchBackend
-bk = TorchBackend("cuda", dtype=torch.float32)                   # fastest
-simulate_period(X0, theta, 3.0, model, rng, backend=bk)
-```
+- **Reference implementations are sacred.** Every vectorized kernel is
+  checked against a loop-based version written straight from the formulas.
+  When they disagree, the fast one is wrong.
+- **Nothing is filtered.** Simulated networks that end up empty or complete
+  stay in the training set; dropping them would silently change what the
+  estimator learns.
+- **One random-number generator, passed explicitly.** A seed fixes the whole
+  run, on either backend.
+- **RSiena is the arbiter of conventions.** Where a statistic can be defined
+  more than one way (it happened twice: `cycle3` counting and the behaviour
+  similarity constant), the definition RSiena uses is the one implemented,
+  and the check that found it is a permanent test.
 
-The Poisson ministep count always comes from the numpy `Generator`, so a seed
-fixes the ministep schedule on every backend; the in-loop draws use a torch
-`Generator` seeded from it. Inputs and outputs are numpy on every backend.
-The whole test suite runs against each backend (`backend` fixture in
-`conftest.py`; `SAOMSIM_TORCH_DEVICE`, `SAOMSIM_TORCH_DTYPE` select device
-and dtype).
+## Data
 
-### Stopping rules
+The `s50` data (`benchmarks/s50*.csv`) are the example data distributed with
+RSiena (GPL-3), an excerpt of the Teenage Friends and Lifestyle Study. They
+are redistributed unchanged so the parity tests run without R.
 
-```python
-simulate_period(X0, theta, rate=3.0, ...)        # Poisson(n * rate) ministeps (RSiena cond=FALSE)
-simulate_period(X0, theta, n_steps=200, ...)     # exactly 200 ministeps
-simulate_period(X0, theta, distance=115, ...)    # until Hamming(X, X0) == 115 (RSiena cond=TRUE)
-X1, info = simulate_period(..., return_info=True)  # info.n_steps, info.n_changes, info.reached
-```
+## Status and contact
 
-## Layout
-
-| file | role |
-|---|---|
-| `backend.py` | NumPy kernels and the backend interface (`NumpyBackend`, `get_backend`): row products, softmax, inverse-CDF sampling, toggle, Hamming distance. The only place that indexes into the `(B, n, n)` layout. |
-| `backend_torch.py` | `TorchBackend`: the same interface on torch tensors, any device, float64 or float32 |
-| `effects.py` | `Effect`, `Model`; vectorized change statistics and target statistics for `density`, `recip`, `transTrip`, `cycle3`, `sameX`, `altX`, `egoX` |
-| `reference.py` | the same statistics as explicit loops on a single network. Slow. Sacred. |
-| `simulate.py` | `simulate_period`, `simulate_panel`, `random_network`, `rate_statistic`, `statistics` |
-| `estimate.py` | `estimate`: multi-panel method of moments (CRN Jacobian, scaled Gauss-Newton, trust region, sandwich s.e.). `estimate_rm`: RSiena-style Robbins-Monro from a single panel, conditional on the observed distance |
-| `prior.py` | `BoxPrior`, `summaries`, `generate_training_set`, `TrainingSet` (npz round trip), `prior_predictive_report`. The s50 prior itself lives in `benchmarks/s50.py` and is justified in `docs/PRIORS.md` |
-
-## Model
-
-One period of the basic SAOM (constant rate; evaluation function only):
-
-- number of ministeps per chain ~ Poisson(n · rate)
-- each ministep: one actor `i` chosen uniformly; `i` picks among the `n`
-  options {toggle `x_ij` : j ≠ i} ∪ {no change} with probability
-  ∝ exp(Σ_k θ_k Δ_ijk), where Δ_ijk = s_ik(x with x_ij toggled) − s_ik(x)
-  and the no-change option has Δ = 0
-- the chosen tie is toggled
-
-Actor statistics follow the RSiena manual and target statistics follow RSiena's
-conventions, verified against RSiena 1.6.6 (see `benchmarks/`): `recip` is
-actor-summed (a mutual dyad contributes 2), `cycle3` counts each 3-cycle once
-(actor sum ÷ 3). Covariates are used as given; RSiena centres them by default,
-so pass centred values for `altX`/`egoX` if you want to match its numbers.
-
-## Conventions
-
-- **Reference implementations are sacred.** When a kernel and its reference
-  disagree, the kernel is wrong.
-- **Nothing is filtered.** Empty and complete networks are returned like any
-  other outcome. Dropping them would silently change the effective prior.
-- **One RNG, passed explicitly.** `simulate_period` consumes a fixed number of
-  draws per ministep regardless of which chains are still active, so a run is
-  fully determined by `(X0, theta, rate, seed)`.
-- **Test before feature.** A new effect needs its loop reference and a
-  parametrized `*_match_reference` test in the same commit.
-
-## Verification
-
-```
-pytest -q -m "not slow"   # 105 tests numpy-only; 160 with torch installed (~10 s)
-pytest -q                 # + 1 recovery test
-python examples/quickstart.py
-python benchmarks/throughput.py
-```
-
-The tests that carry the weight:
-
-- `test_change_statistics_match_reference` / `test_statistics_match_reference`
-  — every effect, three densities, random actors, against `reference.py`
-- `test_simulation_matches_exact_stationary_distribution` — the simulator's
-  long-run law on n = 3 (64 states) against the stationary distribution of the
-  exact ministep transition matrix. This is the test that validates the
-  *dynamics* (actor choice, softmax over the neighbourhood, no-change option,
-  toggle) rather than the statistics.
-- `test_estimate_recovers_parameters` (slow) — truth within 3 s.e. on 150
-  panels.
-- `test_estimate_rm_recovers_from_one_panel` (slow) — Robbins-Monro from one
-  n = 30 panel converges by RSiena's rule and lands within 3 s.e.
-- `benchmarks/test_rsiena_parity.py` — target statistics on s501/s502 equal
-  RSiena 1.6.6's to the last digit, all seven effects plus the rate.
-- `benchmarks/test_rsiena_dynamics.py` — distribution of simulated statistics
-  from s501 at fixed θ matches RSiena's own simulator (means within Monte Carlo
-  error, spreads within 5 %). This is what licenses the phrase "agrees with
-  RSiena" for the model class implemented here. Runs on every backend.
-- `test_backends_agree_in_distribution` — torch vs numpy at the same θ.
-- `test_conditional_simulation_stops_at_observed_distance` — the `distance`
-  rule yields exactly the observed Hamming distance, per chain.
-
-## A result worth noticing
-
-With 200 simulated panels at n = 30 the method-of-moments standard errors in
-the quickstart are ~0.02–0.04. From a *single* panel (`estimate_rm`, quickstart
-§4) they are 0.2–0.6 — for `transTrip` that is larger than typical published
-effect sizes. This is not a bug. A small one-period panel simply carries little information about triadic
-parameters, and any estimator, neural or classical, will report wide
-uncertainty on it. If the amortized posterior looks wide on single panels,
-check its calibration before assuming it is under-trained.
-
-## Throughput
-
-`density + recip + transTrip`, rate 3, panels/s, best of 2 after warm-up
-(`benchmarks/throughput.py`). Laptop = Windows x86 (numpy). Spark = DGX Spark,
-GB10, aarch64.
-
-| n | B | laptop numpy | Spark numpy | Spark CUDA f64 | Spark CUDA f32 |
-|---|---|---|---|---|---|
-| 30 | 1000 | | 9,202 | 32,543 | 32,916 |
-| 30 | 4000 | ~2,800 | 5,240 | 57,383 | **122,671** |
-| 30 | 16000 | | 4,912 | 55,638 | 108,747 |
-| 100 | 400 | ~210 | 414 | 2,182 | 4,535 |
-| 100 | 2000 | | 367 | 2,954 | **5,096** |
-| 200 | 500 | | 108 | 494 | 717 |
-
-CUDA float32 is 23x Spark numpy at n = 30 and 14x at n = 100. At n = 30 the
-GPU is launch-bound (~20 small kernels per ministep), so the gain comes from
-batch width up to B ≈ 4000 and flattens after; CUDA graphs or `torch.compile`
-would be the next lever. At n = 200 the batched matvecs dominate and the gap
-narrows to 7x. Torch on CPU is slower than numpy here and is not a target.
-
-float32 passes the full suite (reference comparisons, exact chain, RSiena
-dynamics); use it for training-data generation, float64 for validation runs.
+Active research, September 2026. The plan, results and open questions are all
+in `docs/`. Issues and questions are welcome on the repository.

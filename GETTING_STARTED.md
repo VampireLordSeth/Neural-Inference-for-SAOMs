@@ -347,5 +347,5 @@ bandwidth is modest, so treat it as a throughput box.
 | Recovery test fails but change stats pass | The derivative matrix in `estimate.py` — likely near-singular. Check `fd_step`, the `ridge` (applied in standardized units), `max_step`, and whether backtracking is exhausting `max_backtrack`. Run with `verbose=True`. |
 | Simulation produces all-empty networks | Density parameter too negative, or the no-change option isn't being zeroed. |
 | Non-reproducible runs | Something is drawing from a second RNG, or `categorical_sample` is consuming a variable number of draws. |
-| Wildly large standard errors | Probably correct. A single small panel carries little information about triadic parameters. See §"A result worth noticing" in the package README. |
+| Wildly large standard errors | Probably correct. A single small panel carries little information about triadic parameters. See §"A result worth noticing" in `docs/PACKAGE.md`. |
 | `estimate` returns `converged=False` | Check `res.tratios`; if one statistic is stuck, its parameter is weakly identified from these panels. More panels or a larger `n_sim`; not a smaller `tol`. |
