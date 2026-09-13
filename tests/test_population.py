@@ -166,3 +166,46 @@ def test_load_m2_summaries_concatenates_shards(tmp_path):
     assert big.X0 is None and big.meta["N"] == 30 and len(big.meta["files"]) == 3
     one = load_m2_summaries(tmp_path / "shard_1.npz")
     assert np.array_equal(one.theta, big.theta[10:20])
+
+
+def test_three_wave_generation_layout_and_storage(tmp_path):
+    from saomsim.population import m2_summary_names, rate_names
+
+    rng = np.random.default_rng(11)
+    model = m2_model(sample_covariates(1, 20, rng))
+    p2 = prior_for(model)
+    assert rate_names(2) == ["rate"] and rate_names(3) == ["rate_1", "rate_2"]
+    p3 = BoxPrior(
+        ("rate_1", "rate_2") + p2.names[1:], np.r_[1, 1, p2.low[1:]], np.r_[12, 12, p2.high[1:]]
+    )
+    ts = generate_m2(p3, 20, rng, n_range=(20, 24), chunk=10, waves=3)
+    names = m2_summary_names(model, 3)
+    assert ts.theta.shape == (20, 9) and ts.summary.shape == (20, 42) and ts.summary_names == names
+    assert ts.X0.shape == ts.X1.shape == (20, N_MAX, N_MAX // 8) and ts.Xw.shape == (
+        20,
+        1,
+        N_MAX,
+        N_MAX // 8,
+    )
+    assert ts.meta["waves"] == 3
+    # the x2 block is the change from wave 2 to wave 3 plus the statistics of wave 3
+    n = int(ts.n[0])
+    idx = np.nonzero(ts.n == n)[0]
+    covs = {"v": ts.v[idx, :n].astype(float), "g": ts.g[idx, :n].astype(float)}
+    X0, X1, X2 = unpack(ts.X0[idx], n), unpack(ts.X1[idx], n), unpack(ts.Xw[idx, 0], n)
+    S = m2_summaries(X0, [X1, X2], m2_model(covs), covs)
+    assert np.allclose(S, ts.summary[idx])
+    assert np.all(ts.summary[idx, names.index("x2_changes")] == (X1 != X2).sum(axis=(1, 2)))
+    T = transform_m2(ts.summary, names, model)
+    assert np.all(np.isfinite(T)) and T.shape == ts.summary.shape
+    with pytest.raises(ValueError):
+        generate_m2(p2, 4, rng, n_range=(20, 21), waves=3)  # prior lacks rate_1/rate_2
+    with pytest.raises(ValueError):
+        generate_m2(p2, 4, rng, n_range=(20, 21), waves=1)
+    ts.save(tmp_path / "w3.npz")
+    back = M2TrainingSet.load(tmp_path / "w3.npz")
+    assert np.array_equal(back.Xw, ts.Xw) and back.meta["waves"] == 3
+    # two-wave files load with Xw None
+    ts2 = generate_m2(p2, 4, rng, n_range=(20, 21), chunk=4)
+    ts2.save(tmp_path / "w2.npz")
+    assert M2TrainingSet.load(tmp_path / "w2.npz").Xw is None

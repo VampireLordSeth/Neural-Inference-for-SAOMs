@@ -59,8 +59,11 @@ def main():
         report.append(msg)
 
     # ---------------------------------------------------------------- data
-    prior_box = m2_prior()
     ts = load_m2_summaries(args.data)
+    waves = int(ts.meta.get("waves", 2))
+    prior_box = m2_prior(waves)
+    if list(prior_box.names) != list(ts.theta_names):
+        raise SystemExit(f"prior/theta mismatch: {prior_box.names} vs {ts.theta_names}")
     if args.limit:
         ts.theta, ts.summary, ts.n = (
             ts.theta[: args.limit],
@@ -68,7 +71,7 @@ def main():
             ts.n[: args.limit],
         )
     N = ts.theta.shape[0]
-    x0, x1, v, g, s_obs, model = s50_as_m2()
+    x0, x1, v, g, s_obs, model = s50_as_m2(waves)
     X = transform_m2(ts.summary, ts.summary_names, model)
     # random hold-out: consecutive rows share one n (one n per chunk), so a tail
     # split would test a single network size
@@ -78,7 +81,7 @@ def main():
     theta_tr, x_tr = ts.theta[tr], X[tr]
     theta_te, x_te, n_te = ts.theta[te], X[te], ts.n[te]
     log(f"population set {args.data}: N={N}, train={n_train}, sbc={args.sbc}, device={device}")
-    log(f"n in [{ts.n.min()}, {ts.n.max()}]; {len(ts.summary_names)} summaries")
+    log(f"waves={waves}; n in [{ts.n.min()}, {ts.n.max()}]; {len(ts.summary_names)} summaries")
     log(f"theta {ts.theta_names}")
 
     prior = BoxUniform(
@@ -170,11 +173,13 @@ def main():
     dt = time.perf_counter() - t0
     np.savez_compressed(f"{out}_posterior_s50.npz", samples=samples, names=np.array(ts.theta_names))
     q = np.quantile(samples, [0.05, 0.5, 0.95], axis=0)
-    log(f"\nM2 posterior for s501 -> s502 (real start, never seen in training; {dt:.2f}s):")
-    rs_path = Path(__file__).parent / "rsiena_estimate.json"
+    tag = "s501 -> s502" if waves == 2 else "s501 -> s502 -> s503"
+    log(f"\nM2 posterior for {tag} (real start, never seen in training; {dt:.2f}s):")
+    rs_file = "rsiena_estimate.json" if waves == 2 else f"rsiena_estimate_{waves}w.json"
+    rs_path = Path(__file__).parent / rs_file
     rs = json.loads(rs_path.read_text(encoding="utf-8")) if rs_path.exists() else None
     m1_path = Path("data/npe_s50_posterior.npz")
-    m1 = np.load(m1_path) if m1_path.exists() else None
+    m1 = np.load(m1_path) if (m1_path.exists() and waves == 2) else None
     hdr = f"{'parameter':<12}{'M2 mean':>9}{'M2 sd':>8}{'M2 90%':>18}"
     if rs:
         hdr += f"{'RSiena':>9}{'se':>7}{'z':>6}"

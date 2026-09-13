@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--backend", default="torch")
     ap.add_argument("--dtype", default="float32")
     ap.add_argument("--no-networks", action="store_true")
+    ap.add_argument("--waves", type=int, default=2)
     args = ap.parse_args()
 
     backend = args.backend
@@ -37,7 +38,7 @@ def main():
             device=backend.partition(":")[2] or None, dtype=getattr(torch, args.dtype)
         )
 
-    prior = m2_prior()
+    prior = m2_prior(args.waves)
     print(f"N={args.N} backend={backend} chunk={args.chunk} seed={args.seed}")
     print(f"prior:\n{prior.table()}", flush=True)
     rng = np.random.default_rng(args.seed)
@@ -50,6 +51,7 @@ def main():
         backend=backend,
         keep_networks=not args.no_networks,
         progress=True,
+        waves=args.waves,
     )
     dt = time.perf_counter() - t0
     print(f"simulated {args.N} panels in {dt:.1f}s ({args.N / dt:,.0f} panels/s)")

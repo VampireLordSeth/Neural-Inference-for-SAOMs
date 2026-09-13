@@ -88,7 +88,7 @@ def sample_start_networks(
     X = (rng.random((B, n, n)) < d[:, None, None]).astype(OUT_DTYPE)
     zero_diagonal(X)
     burn = rng.random(B) < 0.5
-    theta0 = theta_prior.sample(B, rng)[:, 1:]
+    theta0 = theta_prior.sample(B, rng)[:, theta_prior.dim - model.K :]  # drop the rate column(s)
     steps = np.where(burn, BURNIN_STEPS_PER_ACTOR * n, 0)
     X0 = simulate_period(X, theta0, model=model, rng=rng, n_steps=steps, backend=backend)
     return X0, {"er_density": d, "burnin": burn, "theta0": theta0}
@@ -97,26 +97,41 @@ def sample_start_networks(
 # ------------------------------------------------------------------- summaries
 
 
-def m2_summary_names(model: Model) -> list[str]:
+def rate_names(waves: int) -> list[str]:
+    """``["rate"]`` for two waves, ``["rate_1", ..., "rate_{W-1}"]`` otherwise (RSiena's layout)."""
+    return ["rate"] if waves == 2 else [f"rate_{w}" for w in range(1, waves)]
+
+
+def m2_summary_names(model: Model, waves: int = 2) -> list[str]:
     x0 = [f"x0_{s}" for s in model.labels + list(EXTRA_SUMMARIES)]
-    x1 = [f"x1_{s}" for s in ["changes"] + model.labels + list(EXTRA_SUMMARIES)]
-    return ["n", "v_sd", "g_ncat", "g_entropy"] + x0 + x1
+    names = ["n", "v_sd", "g_ncat", "g_entropy"] + x0
+    for w in range(1, waves):
+        names += [f"x{w}_{s}" for s in ["changes"] + model.labels + list(EXTRA_SUMMARIES)]
+    return names
 
 
-def m2_summaries(X0: np.ndarray, X1: np.ndarray, model: Model, covs: dict) -> np.ndarray:
-    """(B, 30) raw summaries: n, covariate shape, X0 block (12), X1 block (13)."""
+def m2_summaries(X0: np.ndarray, X1, model: Model, covs: dict) -> np.ndarray:
+    """Raw summaries: n, covariate shape (3), X0 block (12), then one 13-column block per
+    period (change count from the previous wave + statistics of the new wave).
+    ``X1`` is a single ``(B, n, n)`` wave or a list of waves after ``X0``."""
+    waves_after = X1 if isinstance(X1, (list, tuple)) else [X1]
     B, n, _ = X0.shape
-    s0 = summaries(X0, X0, model)[:, 1:]  # drop the zero 'changes' column
-    s1 = summaries(X0, X1, model)
-    return np.column_stack([np.full(B, n, dtype=DTYPE), covariate_shape(covs), s0, s1])
+    blocks = [np.full(B, n, dtype=DTYPE), covariate_shape(covs), summaries(X0, X0, model)[:, 1:]]
+    prev = X0
+    for Xw in waves_after:
+        blocks.append(summaries(prev, Xw, model))
+        prev = Xw
+    return np.column_stack(blocks)
 
 
 def transform_m2(S: np.ndarray, names: list, model: Model) -> np.ndarray:
     """log1p on counts, asinh on signed sums, in both network blocks; n -> log n."""
     out = np.array(S, dtype=DTYPE, copy=True)
     base = model.labels + list(EXTRA_SUMMARIES)
-    for prefix, cols in (("x0_", base), ("x1_", ["changes"] + base)):
-        idx = [names.index(prefix + c) for c in cols]
+    prefixes = sorted({nm.split("_", 1)[0] for nm in names if nm.startswith("x")})
+    for prefix in prefixes:
+        cols = base if prefix == "x0" else ["changes"] + base
+        idx = [names.index(f"{prefix}_{c}") for c in cols]
         out[:, idx] = transform_summaries(out[:, idx], cols, model)
     out[:, names.index("n")] = np.log(out[:, names.index("n")])
     return out
@@ -146,6 +161,7 @@ class M2TrainingSet:
     summary_names: list
     X0: np.ndarray | None = None  # (N, N_MAX, N_MAX/8) packed
     X1: np.ndarray | None = None
+    Xw: np.ndarray | None = None  # (N, W-2, N_MAX, N_MAX/8) waves after the second, if any
     v: np.ndarray | None = None  # (N, N_MAX) float32, zero padded
     g: np.ndarray | None = None  # (N, N_MAX) int8, -1 padded
     meta: dict = field(default_factory=dict)
@@ -161,6 +177,7 @@ class M2TrainingSet:
             summary_names=np.array(self.summary_names),
             X0=self.X0 if self.X0 is not None else empty_u8,
             X1=self.X1 if self.X1 is not None else empty_u8,
+            Xw=self.Xw if self.Xw is not None else empty_u8,
             v=self.v if self.v is not None else np.zeros((0,), dtype=np.float32),
             g=self.g if self.g is not None else np.zeros((0,), dtype=np.int8),
             meta=np.array(repr(self.meta)),
@@ -171,7 +188,8 @@ class M2TrainingSet:
         import ast
 
         with np.load(path, allow_pickle=False) as z:
-            opt = {k: (z[k] if z[k].size else None) for k in ("X0", "X1", "v", "g")}
+            keys = ("X0", "X1", "v", "g") + (("Xw",) if "Xw" in z.files else ())
+            opt = {k: (z[k] if z[k].size else None) for k in keys}
             return cls(
                 theta=z["theta"],
                 summary=z["summary"],
@@ -233,21 +251,28 @@ def generate_m2(
     backend="numpy",
     keep_networks: bool = True,
     progress: bool = False,
+    waves: int = 2,
 ) -> M2TrainingSet:
-    """Draw ``N`` (n, covariates, X0, theta) from the population, simulate X1, summarise.
+    """Draw ``N`` (n, covariates, X0, theta) from the population, simulate ``waves - 1``
+    periods with one rate per period and shared effects, summarise.
 
     One ``n`` per chunk so each chunk is a dense (B, n, n) batch. Every draw is
-    kept. Networks are stored padded to ``N_MAX`` and bit-packed.
+    kept. Networks are stored padded to ``N_MAX`` and bit-packed. ``theta`` is
+    ``(rate_1..rate_{W-1}, effects)``.
     """
     n_lo, n_hi = n_range
     if n_hi > N_MAX:
         raise ValueError(f"n_range exceeds N_MAX={N_MAX}")
+    if waves < 2:
+        raise ValueError("waves must be >= 2")
+    R = waves - 1
     probe = m2_model(sample_covariates(1, n_lo, rng))
-    if list(prior.names) != ["rate"] + probe.labels:
-        raise ValueError("prior names must be ['rate'] + M2 effect labels")
-    names = m2_summary_names(probe)
+    if list(prior.names) != rate_names(waves) + probe.labels:
+        raise ValueError(f"prior names must be {rate_names(waves)} + M2 effect labels")
+    names = m2_summary_names(probe, waves)
 
     theta_parts, S_parts, n_parts, X0_parts, X1_parts, v_parts, g_parts = ([] for _ in range(7))
+    Xw_parts = []
     n_chunks = -(-N // chunk)
     for c in range(n_chunks):
         B = min(chunk, N - c * chunk)
@@ -256,13 +281,20 @@ def generate_m2(
         model = m2_model(covs)
         X0, _ = sample_start_networks(B, n, rng, prior, model, backend=backend)
         theta = prior.sample(B, rng)
-        X1 = simulate_period(X0, theta[:, 1:], theta[:, 0], model, rng, backend=backend)
+        effects, rates = theta[:, R:], theta[:, :R]
+        later = []
+        prev = X0
+        for w in range(R):
+            prev = simulate_period(prev, effects, rates[:, w], model, rng, backend=backend)
+            later.append(prev)
         theta_parts.append(theta)
-        S_parts.append(m2_summaries(X0, X1, model, covs))
+        S_parts.append(m2_summaries(X0, later, model, covs))
         n_parts.append(np.full(B, n, dtype=np.int64))
         if keep_networks:
             X0_parts.append(_pack(X0, N_MAX))
-            X1_parts.append(_pack(X1, N_MAX))
+            X1_parts.append(_pack(later[0], N_MAX))
+            if R > 1:
+                Xw_parts.append(np.stack([_pack(Xw, N_MAX) for Xw in later[1:]], axis=1))
             v = np.zeros((B, N_MAX), dtype=np.float32)
             v[:, :n] = covs["v"]
             g = np.full((B, N_MAX), -1, dtype=np.int8)
@@ -281,10 +313,12 @@ def generate_m2(
         summary_names=names,
         X0=cat(X0_parts) if keep_networks else None,
         X1=cat(X1_parts) if keep_networks else None,
+        Xw=cat(Xw_parts) if (keep_networks and R > 1) else None,
         v=cat(v_parts) if keep_networks else None,
         g=cat(g_parts) if keep_networks else None,
         meta={
             "N": int(N),
+            "waves": int(waves),
             "n_range": list(n_range),
             "n_max": N_MAX,
             "effects": probe.labels,
@@ -297,8 +331,10 @@ def generate_m2(
 
 
 def real_data_summary(x0, x1, v, g) -> tuple[np.ndarray, Model]:
-    """Summary vector for one observed panel with covariates ``v`` (centred) and ``g``."""
+    """Summary vector for one observed panel with covariates ``v`` (centred) and ``g``.
+    ``x1`` may be a single later wave or a list of later waves."""
     covs = {"v": np.asarray(v, dtype=DTYPE)[None], "g": np.asarray(g, dtype=DTYPE)[None]}
     model = m2_model(covs)
-    S = m2_summaries(np.asarray(x0)[None], np.asarray(x1)[None], model, covs)
+    later = x1 if isinstance(x1, (list, tuple)) else [x1]
+    S = m2_summaries(np.asarray(x0)[None], [np.asarray(x)[None] for x in later], model, covs)
     return S, model

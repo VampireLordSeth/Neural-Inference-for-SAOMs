@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--backend", default="torch")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--waves", type=int, default=2)
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -42,7 +43,7 @@ def main():
     tag = f"_n{args.n}" if args.n else "_pop"
     out = Path(args.out or (str(Path(args.posterior).with_suffix("")) + f"_sbc{tag}"))
 
-    prior = m2_prior()
+    prior = m2_prior(args.waves)
     rng = np.random.default_rng(args.seed)
     n_range = (args.n, args.n) if args.n else (20, 80)
     t0 = time.perf_counter()
@@ -54,6 +55,7 @@ def main():
         chunk=args.chunk,
         backend=args.backend,
         keep_networks=False,
+        waves=args.waves,
     )
     gen_s = time.perf_counter() - t0
     print(f"fresh test set: {args.N} panels, n in [{ts.n.min()}, {ts.n.max()}], {gen_s:.0f}s")
