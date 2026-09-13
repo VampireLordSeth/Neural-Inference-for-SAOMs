@@ -311,7 +311,11 @@ bandwidth is modest, so treat it as a throughput box.
    all 29 summaries. Trained 2026-09-12 (`docs/M2_RESULTS.md`): RSiena's s50
    estimates inside the M2 90% intervals on all 8 parameters from an estimator
    that never saw s501; coverage nominal across n; ~0.1 sd bias on the
-   density–closure ridge. Next: 10⁷ panels + learned embedding.
+   density–closure ridge at 10⁶. With 10⁷ panels (ten shards, seeds 10–19)
+   the ridge bias vanishes: 6/8 parameters clean, coverage nominal, all
+   RSiena estimates within 0.8 sd on s50. Learned embedding (`saomsim/embedding.py`)
+   resolves cycle3 and is sharper but needs a streaming loader for 10⁷.
+   Next: OOD characterisation (paper §4); embedding at 10⁷.
 
 ## 8. Conventions worth keeping
 

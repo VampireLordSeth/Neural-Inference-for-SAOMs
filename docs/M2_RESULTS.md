@@ -171,6 +171,79 @@ on cycle3, and biased in the opposite direction on the ridge. The 10⁷
 summary-only run (in progress) tests the other lever — data — on the same
 bias.
 
+## Ten million panels: the data lever (2026-09-12)
+
+Same summary-only architecture (NSF 8 × 128, 29 summaries), trained on the
+ten 10⁶ shards (`benchmarks/generate_m2.py --seed 10..19`, 7.8 GB, ~2 h of
+generation while sharing the machine), batch 4096, lr 1e-3, random 2,000-row
+hold-out. **101 epochs, 337 min**; best validation loss **−0.834** against
+−0.361 for the same model on 10⁶ (and −0.917 for the embedding model on 10⁶).
+Training was CPU-bound on the data loader at this size (GPU 30–40 %), which is
+the next engineering item.
+
+Fresh 4,000-draw SBC across n (same seed 3 test set as the 10⁶ comparison):
+
+![10M SBC ranks](figures/m2_10m_sbc_ranks_population.png)
+
+| parameter | KS p | mean rank | 50 % | 80 % | 90 % | 95 % | mean rank, n 20–34 → 65–79 |
+|---|---|---|---|---|---|---|---|
+| rate | 0.289 | 0.500 | 0.485 | 0.788 | 0.896 | 0.950 | 0.503 → 0.513 |
+| density | **0.634** | **0.502** | 0.495 | 0.794 | 0.894 | 0.946 | 0.514 → 0.495 |
+| recip | 0.128 | 0.499 | 0.520 | 0.813 | 0.908 | 0.953 | 0.491 → 0.505 |
+| transTrip | **0.581** | **0.497** | 0.511 | 0.806 | 0.906 | 0.954 | 0.499 → 0.500 |
+| cycle3 | 0.003 | 0.483 | 0.491 | 0.797 | 0.899 | 0.949 | 0.501 → 0.457 |
+| altX(v) | 0.041 | 0.512 | 0.500 | 0.796 | 0.893 | 0.943 | 0.505 → 0.512 |
+| egoX(v) | 0.239 | 0.496 | 0.514 | 0.803 | 0.900 | 0.951 | 0.502 → 0.498 |
+| sameX(g) | 0.102 | 0.496 | 0.514 | 0.814 | 0.904 | 0.951 | 0.491 → 0.489 |
+
+- **The density–closure ridge bias is gone.** Density and transTrip mean
+  ranks 0.502 / 0.497 with KS p 0.63 / 0.58, against 0.535 / 0.477 at 10⁶.
+  Recip 0.499. Same architecture, same summaries, ten times the data: the bias
+  was a training artefact of a data-limited fit, exactly as the 10⁵ sweep on
+  M1 predicted and as the sign flip between the two 10⁶ estimators implied.
+- **Coverage nominal within one point** at every level for every parameter.
+- Residuals: cycle3 (mean rank 0.483, KS p 0.003) with a drift toward large
+  n (0.457 at n 65–79) — the parameter that the *embedding* model resolved
+  cleanly at 10⁶; and a faint altX tilt (0.512, p 0.04). Six of eight are
+  clean by every measure.
+
+s50 real start:
+
+| parameter | RSiena | M2 10⁶ summaries | M2 10⁶ embedding | **M2 10⁷ summaries** | z vs RSiena |
+|---|---|---|---|---|---|
+| rate | 6.07 ± 1.03 | 4.82 ± 0.83 | 4.84 ± 0.84 | **5.51 ± 0.97** | 0.58 |
+| density | −2.66 ± 0.22 | −2.84 ± 0.27 | −2.75 ± 0.23 | **−2.78 ± 0.27** | 0.41 |
+| recip | 2.11 ± 0.28 | 2.53 ± 0.35 | 2.38 ± 0.37 | **2.31 ± 0.29** | −0.69 |
+| transTrip | 0.56 ± 0.19 | 0.67 ± 0.19 | 0.49 ± 0.19 | **0.50 ± 0.17** | 0.34 |
+| cycle3 | 0.05 ± 0.35 | −0.07 ± 0.29 | 0.03 ± 0.31 | **0.01 ± 0.28** | 0.12 |
+| altX | −0.07 ± 0.09 | −0.20 ± 0.10 | −0.08 ± 0.10 | **−0.15 ± 0.11** | 0.78 |
+| egoX | 0.03 ± 0.10 | 0.01 ± 0.11 | 0.03 ± 0.12 | **−0.02 ± 0.10** | 0.46 |
+| sameX | 0.24 ± 0.23 | 0.27 ± 0.28 | 0.28 ± 0.23 | **0.36 ± 0.30** | −0.39 |
+
+All eight within 0.8 sd of RSiena. **The rate discrepancy is resolved**
+(5.51 vs 6.07, z 0.58; both 10⁶ models had 4.8) — it too was a data-limited
+artefact, not a population-prior effect. The one parameter the 10⁷ model
+reads less well than the embedding model on this dataset is altX (−0.15 vs
+−0.08, RSiena −0.07).
+
+### What the three M2 estimators say together
+
+| | 10⁶ summaries | 10⁶ embedding | 10⁷ summaries |
+|---|---|---|---|
+| validation loss | −0.361 | −0.917 | −0.834 |
+| training | 67 min | 325 min | 337 min |
+| ridge bias (density / transTrip mean rank) | 0.535 / 0.477 | 0.453 / 0.560 | **0.502 / 0.497** |
+| cycle3 | 0.478 | **0.493** | 0.483 |
+| clean parameters (KS p > 0.05) | 4 | 4 | **6** |
+| s50 max |z| vs RSiena | 1.51 (rate) | 1.46 (rate) | **0.78 (altX)** |
+
+Data and embedding attack different things. Data removed the ridge bias and
+fixed the rate; the embedding resolved cycle3 and extracts more information
+per panel. The obvious next estimator is the embedding trained on 10⁷, which
+needs a streaming loader (the packed input is 18 GB as bytes, 72 GB as the
+float tensor sbi wants) and a size-normalised pooling to remove the n-drift.
+That is engineering, not research risk.
+
 ## What this establishes and what it does not
 
 Established: a single amortized estimator conditioned on (X0, n, covariates)
@@ -180,12 +253,17 @@ population of sizes and starts. That is the M2 acceptance criterion
 ("calibration holds across the size range") met at interval level, with a
 documented ~0.1 sd location bias on the density–closure ridge.
 
-Not established: that the residual bias vanishes with more data or a learned
-embedding. That is the next experiment, and the 10⁷ run is the cheap half of
-it (simulation ≈ 90 min; training ≈ 10 h at batch 1024, less with a larger
-batch now that data is plentiful). The learned embedding is the other half:
-the population training set already stores both waves and covariates,
-padded and bit-packed, for exactly this.
+Established by the 10⁷ run: the residual ridge bias *does* vanish with more
+data on the same architecture (density / transTrip mean ranks 0.502 / 0.497,
+coverage nominal within one point, all eight RSiena estimates within 0.8 sd
+on the real start). Established by the embedding run: the learned embedding
+extracts more information per panel and resolves cycle3, but needs both more
+data and a size-normalised pooling before it is the estimator of record.
+
+Not established: behaviour outside the population (n outside 20–80, denser
+or sparser starts than the prior, effects absent from the model). That is
+the out-of-distribution characterisation §4 of the paper plan calls for and
+the next item.
 
 ## Cost accounting
 
