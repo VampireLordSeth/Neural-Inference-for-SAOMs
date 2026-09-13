@@ -1,0 +1,46 @@
+{
+  "rsiena_version": "1.6.6",
+  "behaviour": "alc = s50a, waves 1..3, values 1..5",
+  "constants": {
+    "simMean": 0.674387755102041,
+    "range": 4,
+    "grand_mean": 3.11333333333333
+  },
+  "labels": ["net:Rate", "net:Rate", "net:density", "net:recip", "net:transTrip", "net:cycle3", "net:altX", "net:egoX", "net:simX", "alc:Rate", "alc:Rate", "alc:linear", "alc:quad", "alc:avSim", "alc:avAlt"],
+  "targets_by_period": [
+    {
+      "net:Rate": 115,
+      "net:Rate.1": 0,
+      "net:density": 116,
+      "net:recip": 70,
+      "net:transTrip": 88,
+      "net:cycle3": 28,
+      "net:altX": -31.1466666666667,
+      "net:egoX": -24.1466666666667,
+      "net:simX": 13.5210204081633,
+      "alc:Rate": 27,
+      "alc:Rate.1": 0,
+      "alc:linear": -0.666666666666664,
+      "alc:quad": 70.5088888888889,
+      "alc:avSim": 4.43649659863945,
+      "alc:avAlt": 31.8586222222222
+    },
+    {
+      "net:Rate": 0,
+      "net:Rate.1": 106,
+      "net:density": 122,
+      "net:recip": 90,
+      "net:transTrip": 137,
+      "net:cycle3": 44,
+      "net:altX": 14.1733333333333,
+      "net:egoX": 15.1733333333333,
+      "net:simX": 8.47469387755102,
+      "alc:Rate": 0,
+      "alc:Rate.1": 33,
+      "alc:linear": 12.3333333333333,
+      "alc:quad": 50.5622222222222,
+      "alc:avSim": 5.41627551020408,
+      "alc:avAlt": 22.0500222222222
+    }
+  ]
+}

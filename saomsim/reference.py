@@ -102,3 +102,44 @@ def choice_probabilities(x, i, theta, effects, covariates=None) -> np.ndarray:
     f = objective(x, i, theta, effects, covariates)
     e = np.exp(f - f.max())
     return e / e.sum()
+
+
+# ------------------------------------------------------------ behaviour (M3b)
+
+
+def behaviour_actor_statistic(x, z, i, effect, zbar, sim_mean, z_range) -> float:
+    """``s_i(x, z)`` for one behaviour effect, by explicit loops (single network, (n,) z)."""
+    n = x.shape[0]
+    zt = [z[j] - zbar for j in range(n)]
+    if effect == "linear":
+        return float(zt[i])
+    if effect == "quad":
+        return float(zt[i] ** 2)
+    out = [j for j in range(n) if x[i, j] == 1]
+    if not out:
+        return 0.0
+    if effect == "avAlt":
+        return float(zt[i] * sum(zt[j] for j in out) / len(out))
+    if effect == "avSim":
+        return float(sum((1 - abs(z[i] - z[j]) / z_range) - sim_mean for j in out) / len(out))
+    raise KeyError(effect)
+
+
+def behaviour_change(x, z, i, d, effect, zbar, sim_mean, z_range) -> float:
+    """``s_i(x, z with z_i += d) - s_i(x, z)``."""
+    z2 = np.array(z, dtype=float, copy=True)
+    z2[i] += d
+    return behaviour_actor_statistic(
+        x, z2, i, effect, zbar, sim_mean, z_range
+    ) - behaviour_actor_statistic(x, z, i, effect, zbar, sim_mean, z_range)
+
+
+def selection_creation(z, i, j, effect, zbar, sim_mean, z_range) -> float:
+    """Creation contribution of a selection effect for the tie i -> j."""
+    if effect == "egoZ":
+        return float(z[i] - zbar)
+    if effect == "altZ":
+        return float(z[j] - zbar)
+    if effect == "simZ":
+        return float((1 - abs(z[i] - z[j]) / z_range) - sim_mean)
+    raise KeyError(effect)

@@ -126,5 +126,22 @@ class TorchBackend:
     def hamming(self, X, Y):
         return (X != Y).sum(dim=(1, 2))
 
+    def where(self, cond, a, b):
+        ref = b if isinstance(b, torch.Tensor) else a
+        a = (
+            a
+            if isinstance(a, torch.Tensor)
+            else torch.as_tensor(a, dtype=ref.dtype, device=ref.device)
+        )
+        b = (
+            b
+            if isinstance(b, torch.Tensor)
+            else torch.as_tensor(b, dtype=ref.dtype, device=ref.device)
+        )
+        return torch.where(cond, a, b)
+
+    def clamp_min(self, a, v):
+        return torch.clamp(a, min=v)
+
     def __repr__(self) -> str:
         return f"TorchBackend(device={str(self.device)!r}, dtype={self.dtype})"

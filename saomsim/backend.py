@@ -186,6 +186,12 @@ class NumpyBackend:
         """Per-chain number of differing entries: ``(B,)`` int."""
         return (X != Y).sum(axis=(1, 2))
 
+    def where(self, cond, a, b):
+        return np.where(cond, a, b)
+
+    def clamp_min(self, a, v):
+        return np.maximum(a, v)
+
     def __repr__(self) -> str:
         return "NumpyBackend()"
 
