@@ -1,0 +1,53 @@
+{
+  "rsiena_version": "1.6.6",
+  "n3": 2000,
+  "seed": 20240913,
+  "labels": ["net:Rate", "net:density", "net:recip", "net:transTrip", "net:cycle3", "net:altX", "net:egoX", "net:simX", "alc:Rate", "alc:linear", "alc:quad", "alc:avAlt"],
+  "theta": {
+    "net:Rate": 5,
+    "net:density": -2.3,
+    "net:recip": 2.2,
+    "net:transTrip": 0.45,
+    "net:cycle3": -0.25,
+    "net:altX": 0.1,
+    "net:egoX": 0.05,
+    "net:simX": 1,
+    "alc:Rate": 1.5,
+    "alc:linear": 0.2,
+    "alc:quad": -0.3,
+    "alc:avAlt": 1.5
+  },
+  "constants": {
+    "grand_mean": 2.99,
+    "simMean": 0.686530612244898,
+    "range": 4
+  },
+  "mean": {
+    "net:Rate": 106.1795,
+    "net:density": 127.1975,
+    "net:recip": 76.029,
+    "net:transTrip": 62.5895,
+    "net:cycle3": 18.568,
+    "net:altX": 16.111975,
+    "net:egoX": 10.392475,
+    "net:simX": 10.4221474489796,
+    "alc:Rate": 30.812,
+    "alc:linear": 6.06099999999998,
+    "alc:quad": 89.36222,
+    "alc:avAlt": 50.1177255
+  },
+  "sd": {
+    "net:Rate": 9.23807072528473,
+    "net:density": 11.9443638450874,
+    "net:recip": 10.4138073100738,
+    "net:transTrip": 21.1692952003518,
+    "net:cycle3": 6.72487828841511,
+    "net:altX": 12.2288778870575,
+    "net:egoX": 11.6450052167281,
+    "net:simX": 2.46442002623044,
+    "alc:Rate": 4.74656938856689,
+    "alc:linear": 7.53695441414636,
+    "alc:quad": 11.6279559403738,
+    "alc:avAlt": 11.2541313530857
+  }
+}

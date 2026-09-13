@@ -56,3 +56,63 @@ def test_targets_match_rsiena(data, period):
     # the two 'alc:Rate' rows into one key): 27 changes in period 1, 33 in period 2
     rate = behaviour_rate_statistic(Z[:, period][None], Z[:, period + 1][None])[0]
     assert rate == [27.0, 33.0][period]
+
+
+DYN_FILES = ["s501.csv", "s50a.csv", "rsiena_coevolution_sims.csv", "rsiena_coevolution_sims.json"]
+
+
+def test_joint_dynamics_match_rsiena(backend):
+    """M3b gate, part 2: the joint network-behaviour simulator reproduces RSiena's
+    simulated statistic distribution at fixed theta (s501 + alcohol wave 1 start).
+    Reference run: 2000 RSiena vs 4000 saomsim draws, all |z| <= 2.0, sd ratios 0.99-1.03."""
+    from saomsim import Model, rate_statistic, statistics
+    from saomsim.behaviour import simulate_coevolution
+
+    missing = [f for f in DYN_FILES if not (HERE / f).exists()]
+    if missing:
+        pytest.skip(f"missing {missing}; run benchmarks/rsiena_coevolution_simulate.R")
+    x0 = np.loadtxt(HERE / "s501.csv", delimiter=",", dtype=np.int8)
+    Z = np.loadtxt(HERE / "s50a.csv", delimiter=",")
+    with open(HERE / "rsiena_coevolution_sims.json", encoding="utf-8") as fh:
+        J = json.load(fh)
+    R = np.loadtxt(HERE / "rsiena_coevolution_sims.csv", delimiter=",", skiprows=1)
+    th = J["theta"]
+    spec = spec_from_data(Z[:, :2], 1, 5)
+    assert spec.sim_mean == pytest.approx(J["constants"]["simMean"], abs=1e-9)
+    model = Model(["density", "recip", "transTrip", "cycle3"])
+    bm = BehaviourModel(effects=("linear", "quad", "avAlt"), selection=("altZ", "egoZ", "simZ"))
+    B = 1500
+    X0 = np.repeat(x0[None], B, 0)
+    z0 = np.repeat(Z[:, 0][None], B, 0).astype(int)
+    X1, z1 = simulate_coevolution(
+        X0,
+        z0,
+        [th["net:density"], th["net:recip"], th["net:transTrip"], th["net:cycle3"]],
+        [th["net:altX"], th["net:egoX"], th["net:simX"]],
+        [th["alc:linear"], th["alc:quad"], th["alc:avAlt"]],
+        th["net:Rate"],
+        th["alc:Rate"],
+        model,
+        bm,
+        spec,
+        np.random.default_rng(0),
+        backend=backend,
+    )
+    S = np.column_stack(
+        [
+            rate_statistic(X0, X1),
+            statistics(X1, model),
+            bm.selection_statistics(X1, z0, spec),
+            behaviour_rate_statistic(z0, z1),
+            bm.statistics(X0, z1, spec),
+        ]
+    )
+    assert S.shape[1] == R.shape[1] == len(J["labels"])
+    se = np.sqrt(R.var(axis=0, ddof=1) / len(R) + S.var(axis=0, ddof=1) / B)
+    z = (R.mean(axis=0) - S.mean(axis=0)) / se
+    ratio = S.std(axis=0, ddof=1) / R.std(axis=0, ddof=1)
+    report = "\n".join(
+        f"{lbl:<14} z {z[k]:6.2f}  sd ratio {ratio[k]:.3f}" for k, lbl in enumerate(J["labels"])
+    )
+    assert np.all(np.abs(z) < 4.0), report
+    assert np.all((ratio > 0.85) & (ratio < 1.18)), report
