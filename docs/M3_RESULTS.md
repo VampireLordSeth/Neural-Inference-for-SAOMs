@@ -80,9 +80,40 @@ effects are not modelled (nor in RSiena's default); a `sienaTimeTest`-style
 check on the amortized posterior — compare per-period posteriors from the
 two-wave estimator applied to each period — is a cheap diagnostic to add.
 
-Next for M3: (a) 10⁷ three-wave panels to remove the residual tilts;
-(b) M3b, behaviour co-evolution (`docs/PRIORS_M3b.md`), which is a simulator
-extension with its own RSiena gate.
+(The 10⁷ run below removed the residual rate tilt; M3b follows.)
+
+## Ten million three-wave panels (2026-09-14)
+
+Same architecture on ten 10⁶ shards (`data/m3_shards`, seeds 40–49; ~2.5 h of
+generation while sharing the machine), batch 4096, lr 1e-3: **181 epochs,
+513 min**; best validation loss **−1.555** (10⁶: −0.901).
+
+![M3 10M SBC ranks](figures/m3_10m_sbc_ranks_population.png)
+
+Fresh 4,000-draw SBC across n: coverage **nominal within one point** at every
+level for all nine parameters; mean ranks 0.486–0.515 (density 0.501 and
+transTrip 0.494 — the ridge is clean; cycle3 0.515, recip 0.512 and egoX 0.486
+carry KS p < 0.05 but no coverage deficit).
+
+s501 → s502 → s503 vs RSiena:
+
+| parameter | RSiena | 10⁶ M3 | **10⁷ M3** | (RS − 10⁷)/sd |
+|---|---|---|---|---|
+| rate₁ | 6.51 ± 1.07 | 5.37 ± 1.01 | **5.99 ± 1.07** | 0.49 |
+| rate₂ | 5.30 ± 0.89 | 4.69 ± 0.78 | **5.27 ± 0.91** | 0.04 |
+| density | −2.76 ± 0.16 | −2.69 ± 0.20 | **−2.73 ± 0.20** | −0.15 |
+| recip | 2.44 ± 0.21 | 2.64 ± 0.24 | **2.55 ± 0.24** | −0.44 |
+| transTrip | 0.64 ± 0.15 | 0.70 ± 0.15 | **0.51 ± 0.14** | 0.92 |
+| cycle3 | −0.07 ± 0.28 | −0.09 ± 0.27 | **−0.01 ± 0.27** | −0.22 |
+| altX | −0.02 ± 0.07 | −0.08 ± 0.07 | **−0.08 ± 0.08** | 0.69 |
+| egoX | 0.06 ± 0.08 | 0.07 ± 0.07 | **0.04 ± 0.09** | 0.17 |
+| sameX | 0.17 ± 0.17 | 0.03 ± 0.24 | **0.14 ± 0.22** | 0.14 |
+
+All nine within 0.92 sd; both rates now sit on RSiena's values (z 0.49 and
+0.04) where the 10⁶ model had them ~1 sd low. The same pattern as the two-wave
+case: rate under-reads at 10⁶ are a data-limited training artefact, and the
+posterior tightening with the third wave is preserved (density sd 0.20, recip
+0.24, transTrip 0.14).
 
 ---
 
