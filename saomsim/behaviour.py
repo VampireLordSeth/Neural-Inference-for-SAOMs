@@ -79,12 +79,21 @@ class BehaviourModel:
         return len(self.selection)
 
     # ------------------------------------------------------------ helpers
-    @staticmethod
-    def constants(spec, B, bk):
-        """zbar and simMean as (B, 1) device arrays."""
-        zbar = bk.array(np.broadcast_to(np.asarray(spec.zbar, dtype=DTYPE), (B,)))[:, None]
-        sm = bk.array(np.broadcast_to(np.asarray(spec.sim_mean, dtype=DTYPE), (B,)))[:, None]
-        return zbar, sm
+    def constants(self, spec, B, bk):
+        """zbar and simMean as (B, 1) device arrays, plus the {-1,0,+1} option vector.
+        Cached per (backend, spec, B): these are uploaded once per simulation, not
+        once per ministep (which cost a quarter of the run time)."""
+        key = (bk.name, str(bk.device), id(spec), B)
+        cache = self.__dict__.setdefault("_const_cache", {})
+        hit = cache.get(key)
+        if hit is None:
+            zbar = bk.array(np.broadcast_to(np.asarray(spec.zbar, dtype=DTYPE), (B,)))[:, None]
+            sm = bk.array(np.broadcast_to(np.asarray(spec.sim_mean, dtype=DTYPE), (B,)))[:, None]
+            deltas = bk.array(np.array([-1.0, 0.0, 1.0]))[None, :]
+            if len(cache) > 8:
+                cache.clear()
+            hit = cache[key] = (zbar, sm, deltas)
+        return hit
 
     # ------------------------------------------------ behaviour ministep
     def move_contributions(self, X, z, actor, spec, bk):
@@ -92,7 +101,7 @@ class BehaviourModel:
         Uses the current network ``X`` (B, n, n) and behaviour ``z`` (B, n)."""
         B, n = z.shape
         rows = bk.arange(B)
-        zbar, _ = self.constants(spec, B, bk)
+        zbar, _, deltas = self.constants(spec, B, bk)
         zt = z - zbar
         zi = zt[rows, actor][:, None]  # (B,1) centred focal value
         raw_i = z[rows, actor][:, None]
@@ -101,7 +110,6 @@ class BehaviourModel:
         has = bk.as_float(deg > 0)
         safe_deg = bk.clamp_min(deg, 1.0)
         alt_mean = (out_row * zt).sum(axis=-1)[:, None] / safe_deg  # (B,1)
-        deltas = bk.array(np.array([-1.0, 0.0, 1.0]))[None, :]  # (1,3)
         z_new = zi + deltas  # (B,3) centred
         rng_ = float(spec.z_range)
         out = bk.empty((B, 3, self.K))
@@ -137,7 +145,7 @@ class BehaviourModel:
         """Creation contributions of the selection effects for tie i->j: ``(B, n, K_sel)``."""
         B, n = z.shape
         rows = bk.arange(B)
-        zbar, sm = self.constants(spec, B, bk)
+        zbar, sm, _ = self.constants(spec, B, bk)
         zt = z - zbar
         zi = zt[rows, actor][:, None]
         raw_i = z[rows, actor][:, None]
