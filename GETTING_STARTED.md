@@ -330,8 +330,11 @@ bandwidth is modest, so treat it as a throughput box.
     14-parameter estimator on 10⁶ panels, coverage nominal for all 14, all
     RSiena s50 estimates inside the 90% intervals; selection and influence both
     recovered, posterior correlation −0.14. 10⁷ three-wave M3a done 2026-09-14:
-    rates on RSiena's values, coverage nominal within 1 pt. Next: GPU-side
-    summaries → 10⁷ co-evolution; M4 application.
+    rates on RSiena's values, coverage nominal within 1 pt. 10⁷ co-evolution
+    done 2026-09-14: calibrated on all 14; selection on RSiena; influence/quad
+    pair still 1.5–1.7 sd off and validation loss worse than 10⁶ (optimiser
+    settings suspected — re-run at 1024/5e-4 pending). Next: M4 (Glasgow n=160
+    → Knecht classrooms), sparse simulator for n > 500.
 
 ## 8. Conventions worth keeping
 

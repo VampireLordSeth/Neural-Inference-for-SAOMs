@@ -204,3 +204,58 @@ dataset. Milestones M0–M3 of the plan now all have results.
 
 Next: the 10⁷ co-evolution set (≈ 11 h of generation at the current rate — the
 CPU-side summaries are the bottleneck to move to the GPU first), and M4.
+
+## Ten million co-evolution panels (2026-09-14)
+
+Ten summary-only shards (`data/coev_shards`, seeds 60–69, 4096-panel chunks;
+~3 h after the constants-caching fix in `behaviour.py`), same NSF 8 × 128,
+batch 4096, lr 1e-3, patience 15: **165 epochs, 493 min**. Best validation loss
+**5.906 — worse than the 10⁶ run's 5.157**, and the s50 posteriors are
+correspondingly a little wider (density sd 0.28 vs 0.18). This is the first 10⁷
+run that did not improve the fit; the two-wave and three-wave network-only runs
+both did. The likeliest cause is the optimiser setting (batch 4096 / lr 1e-3
+was carried over from those runs; the 10⁶ co-evolution model used 1024 / 5e-4)
+rather than the data, and the clean test is a re-run at the 10⁶ settings.
+Recorded as an open item, not glossed.
+
+![M3b 10M SBC ranks](figures/m3b_10m_sbc_ranks_population.png)
+
+Calibration (fresh 4,000 draws): coverage **nominal within 1.6 points for all
+14 parameters**; mean ranks 0.477–0.522. transTrip (0.522) and cycle3 (0.477)
+carry the largest tilts; selection simZ 0.513 (KS p 0.006), influence avAlt
+0.492 (p 0.22). No drift with n.
+
+s50, three waves, network × alcohol:
+
+| parameter | RSiena | 10⁶ M3b | **10⁷ M3b** | (RS − 10⁷)/sd |
+|---|---|---|---|---|
+| rate_net₁ | 6.53 ± 1.07 | 5.26 ± 0.98 | 5.44 ± 0.89 | 1.22 |
+| rate_net₂ | 5.15 ± 0.84 | 4.36 ± 0.68 | **5.47 ± 1.06** | −0.31 |
+| rate_beh₁ | 1.32 ± 0.39 | 1.24 ± 0.32 | 1.46 ± 0.41 | −0.34 |
+| rate_beh₂ | 1.78 ± 0.45 | 2.45 ± 0.89 | 2.49 ± 0.89 | −0.80 |
+| density | −2.76 ± 0.15 | −2.97 ± 0.18 | **−2.85 ± 0.28** | 0.30 |
+| recip | 2.39 ± 0.22 | 2.60 ± 0.27 | 2.72 ± 0.25 | −1.28 |
+| transTrip | 0.66 ± 0.15 | 0.64 ± 0.18 | **0.67 ± 0.18** | −0.03 |
+| cycle3 | −0.10 ± 0.30 | −0.03 ± 0.31 | −0.23 ± 0.33 | 0.37 |
+| egoZ | 0.05 ± 0.11 | 0.17 ± 0.16 | 0.11 ± 0.17 | −0.35 |
+| altZ | −0.06 ± 0.11 | −0.13 ± 0.18 | −0.11 ± 0.15 | 0.37 |
+| **simZ (selection)** | **1.42 ± 0.64** | 2.44 ± 0.79 | **1.86 ± 0.82** | −0.53 |
+| linear | 0.42 ± 0.24 | 0.46 ± 0.30 | 0.42 ± 0.48 | 0.00 |
+| quad | −0.60 ± 0.35 | −1.00 ± 0.30 | −1.06 ± 0.30 | 1.53 |
+| **avAlt (influence)** | **1.33 ± 0.86** | 2.70 ± 0.91 | **2.71 ± 0.80** | −1.72 |
+
+- All 14 RSiena estimates inside the 10⁷ 90 % intervals. **Selection moved onto
+  RSiena** (1.86 vs 1.42, z −0.53, from z −1.29 at 10⁶), as did density,
+  rate_net₂ and transTrip.
+- **Influence did not move** (avAlt 2.71 ± 0.80 vs RSiena 1.33 ± 0.86,
+  z −1.72), and quad stays at −1.06 vs −0.60 (z 1.53). These two are the
+  behaviour-shape pair; a positive influence coefficient and a more negative
+  quadratic term trade off against each other in how strongly behaviour is
+  pulled toward alters versus toward the mean. RSiena's own s.e. on avAlt is
+  0.86 — its point estimate is inside our 90 % interval and ours is inside its
+  ±2 s.e. — so this is not a disagreement about whether influence is present;
+  it is a 1.7-sd difference in a weakly identified direction that the 10⁷ data
+  did not resolve. Whether a better-optimised 10⁷ fit or the learned embedding
+  closes it is the next experiment.
+- Selection × influence posterior correlation −0.12 (−0.14 at 10⁶): stable.
+- Cost: 0.5 s per 14-parameter posterior.
