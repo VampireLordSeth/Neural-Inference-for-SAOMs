@@ -261,8 +261,8 @@ def generate_m2(
     ``(rate_1..rate_{W-1}, effects)``.
     """
     n_lo, n_hi = n_range
-    if n_hi > N_MAX:
-        raise ValueError(f"n_range exceeds N_MAX={N_MAX}")
+    if keep_networks and n_hi > N_MAX:
+        raise ValueError(f"n_range exceeds N_MAX={N_MAX}; pass keep_networks=False for larger n")
     if waves < 2:
         raise ValueError("waves must be >= 2")
     R = waves - 1

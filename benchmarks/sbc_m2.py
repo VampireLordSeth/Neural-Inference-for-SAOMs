@@ -34,6 +34,8 @@ def main():
     ap.add_argument("--backend", default="torch")
     ap.add_argument("--out", default=None)
     ap.add_argument("--waves", type=int, default=2)
+    ap.add_argument("--rate-max", type=float, default=12.0)
+    ap.add_argument("--n-max", type=int, default=80)
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -43,9 +45,9 @@ def main():
     tag = f"_n{args.n}" if args.n else "_pop"
     out = Path(args.out or (str(Path(args.posterior).with_suffix("")) + f"_sbc{tag}"))
 
-    prior = m2_prior(args.waves)
+    prior = m2_prior(args.waves, rate=(1.0, args.rate_max))
     rng = np.random.default_rng(args.seed)
-    n_range = (args.n, args.n) if args.n else (20, 80)
+    n_range = (args.n, args.n) if args.n else (20, args.n_max)
     t0 = time.perf_counter()
     ts = generate_m2(
         prior,
@@ -84,12 +86,13 @@ def main():
     print("\n" + coverage_table(ranks_np.astype(float), L, ts.theta_names))
     if not args.n:
         print("\nmean rank/L by n band (0.5 ideal; se ~ 0.29/sqrt(N_band)):")
-        for lo in range(20, 81, 15):
-            m = (ts.n >= lo) & (ts.n < lo + 15)
+        step = 15 if args.n_max <= 80 else 30
+        for lo in range(20, args.n_max + 1, step):
+            m = (ts.n >= lo) & (ts.n < lo + step)
             if m.any():
                 u = ranks_np[m] / L
                 print(
-                    f"  n {lo:>2}..{min(lo + 14, 80):<2} (N={m.sum():>4}): "
+                    f"  n {lo:>3}..{min(lo + step - 1, args.n_max):<3} (N={m.sum():>4}): "
                     + " ".join(f"{nm}={u[:, k].mean():.3f}" for k, nm in enumerate(ts.theta_names))
                 )
     np.savez_compressed(

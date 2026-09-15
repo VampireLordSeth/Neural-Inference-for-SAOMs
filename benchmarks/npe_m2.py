@@ -22,7 +22,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table  # noqa: E402
-from benchmarks.m2 import m2_prior, s50_as_m2  # noqa: E402
+from benchmarks.m2 import glasgow_as_m2, m2_prior, s50_as_m2  # noqa: E402
 from saomsim.population import load_m2_summaries, transform_m2  # noqa: E402
 
 
@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--hidden", type=int, default=128)
     ap.add_argument("--transforms", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--rate-max", type=float, default=None, help="upper rate prior (default 12)")
+    ap.add_argument("--real", default="s50", choices=["s50", "glasgow"])
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -61,7 +63,8 @@ def main():
     # ---------------------------------------------------------------- data
     ts = load_m2_summaries(args.data)
     waves = int(ts.meta.get("waves", 2))
-    prior_box = m2_prior(waves)
+    rate_hi = args.rate_max if args.rate_max is not None else float(ts.meta["prior_high"][0])
+    prior_box = m2_prior(waves, rate=(1.0, rate_hi))
     if list(prior_box.names) != list(ts.theta_names):
         raise SystemExit(f"prior/theta mismatch: {prior_box.names} vs {ts.theta_names}")
     if args.limit:
@@ -71,7 +74,7 @@ def main():
             ts.n[: args.limit],
         )
     N = ts.theta.shape[0]
-    x0, x1, v, g, s_obs, model = s50_as_m2(waves)
+    x0, x1, v, g, s_obs, model = (s50_as_m2 if args.real == "s50" else glasgow_as_m2)(waves)
     X = transform_m2(ts.summary, ts.summary_names, model)
     # random hold-out: consecutive rows share one n (one n per chunk), so a tail
     # split would test a single network size
@@ -173,10 +176,13 @@ def main():
     dt = time.perf_counter() - t0
     np.savez_compressed(f"{out}_posterior_s50.npz", samples=samples, names=np.array(ts.theta_names))
     q = np.quantile(samples, [0.05, 0.5, 0.95], axis=0)
-    tag = "s501 -> s502" if waves == 2 else "s501 -> s502 -> s503"
+    tag = f"{args.real}, {waves} waves, n={x0.shape[0]}"
     log(f"\nM2 posterior for {tag} (real start, never seen in training; {dt:.2f}s):")
-    rs_file = "rsiena_estimate.json" if waves == 2 else f"rsiena_estimate_{waves}w.json"
-    rs_path = Path(__file__).parent / rs_file
+    if args.real == "glasgow":
+        rs_path = Path(__file__).parent / "glasgow" / "rsiena_network3w.json"
+    else:
+        rs_file = "rsiena_estimate.json" if waves == 2 else f"rsiena_estimate_{waves}w.json"
+        rs_path = Path(__file__).parent / rs_file
     rs = json.loads(rs_path.read_text(encoding="utf-8")) if rs_path.exists() else None
     m1_path = Path("data/npe_s50_posterior.npz")
     m1 = np.load(m1_path) if (m1_path.exists() and waves == 2) else None
@@ -187,6 +193,9 @@ def main():
         hdr += f"{'M1 mean':>9}{'M1 sd':>7}"
     log(hdr)
     rs_names = {"altX(v)": "altX(alc)", "egoX(v)": "egoX(alc)", "sameX(g)": "sameX(smk)"}
+    if args.real == "glasgow":  # labels from benchmarks/glasgow/prepare_and_fit.R
+        rs_names = {nm: f"net:{nm.split('(')[0]}" for nm in ts.theta_names}
+        rs_names.update({"rate_1": "net:rate_1", "rate_2": "net:rate_2", "rate": "net:rate_1"})
     for k, name in enumerate(ts.theta_names):
         m, sd = samples[:, k].mean(), samples[:, k].std()
         line = f"{name:<12}{m:>9.3f}{sd:>8.3f}{f'[{q[0, k]:.2f}, {q[2, k]:.2f}]':>18}"
