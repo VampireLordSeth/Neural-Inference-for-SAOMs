@@ -7,6 +7,7 @@ from saomsim.population import (
     M2_EFFECTS,
     N_MAX,
     M2TrainingSet,
+    cap_outdegree,
     covariate_shape,
     generate_m2,
     m2_model,
@@ -68,6 +69,46 @@ def test_start_networks_mix_er_and_burnin(backend):
         ~info["burnin"]
     ].mean()
     assert excess > 0
+
+
+def test_sparse_start_regime_mean_degree_and_cap():
+    rng = np.random.default_rng(3)
+    B, n = 400, 120
+    covs = sample_covariates(B, n, rng)
+    model = m2_model(covs)
+    X0, info = sample_start_networks(B, n, rng, prior_for(model), model, start="sparse")
+    assert X0.shape == (B, n, n) and X0.dtype == np.int8
+    assert np.all(X0[:, np.arange(n), np.arange(n)] == 0)
+    sparse, cap, burn = info["sparse"], info["cap"], info["burnin"]
+    assert 0.35 < sparse.mean() < 0.65
+    capped = cap > 0
+    assert capped.sum() > 0 and not np.any(capped & ~sparse)
+    # the cap holds for every actor of a capped start
+    outdeg = X0.sum(axis=2)
+    assert np.all(outdeg[capped] <= cap[capped, None])
+    # uncapped, un-burnt sparse ER starts have mean degree in the drawn range;
+    # the m2 regime at this n is several times denser
+    er_sparse = sparse & ~burn & ~capped
+    md = outdeg.mean(axis=1)
+    assert np.all(md[er_sparse] < 12) and md[er_sparse].mean() > 1.5
+    assert md[~sparse & ~burn].mean() > 2 * md[er_sparse].mean()
+    # the m2 regime is unchanged by default
+    rng2 = np.random.default_rng(0)
+    model2 = m2_model(sample_covariates(8, 20, rng2))
+    _, info2 = sample_start_networks(8, 20, rng2, prior_for(model2), model2)
+    assert not info2["sparse"].any() and np.all(info2["cap"] < 0)
+
+
+def test_cap_outdegree_keeps_exactly_cap_ties():
+    rng = np.random.default_rng(4)
+    X = (rng.random((3, 30, 30)) < 0.5).astype(np.int8)
+    X[:, np.arange(30), np.arange(30)] = 0
+    before = X.copy()
+    cap = np.array([4, 7, 100])
+    cap_outdegree(X, cap, rng)
+    assert np.all(X <= before)  # only removals
+    assert np.all(X[0].sum(1) == 4) and np.all(X[1].sum(1) == 7)
+    assert np.array_equal(X[2], before[2])
 
 
 def test_summaries_layout_and_transform():

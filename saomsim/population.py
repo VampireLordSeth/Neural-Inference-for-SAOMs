@@ -35,6 +35,10 @@ LIKERT_K = (3, 4, 5)
 GROUP_K = (2, 3, 4)
 ER_DENSITY = (0.02, 0.20)
 BURNIN_STEPS_PER_ACTOR = 10
+# "sparse" start regime (docs/PRIORS_M4.md): half the starts draw a mean degree
+# instead of a tie fraction, and half of those cap out-degree as nomination surveys do.
+MEAN_DEGREE = (2.0, 10.0)
+CAP_EXCESS = (1, 3)  # cap = ceil(mean degree) + U{1..3}
 
 
 def m2_model(covariates: dict) -> Model:
@@ -73,6 +77,22 @@ def covariate_shape(covs: dict) -> np.ndarray:
 # --------------------------------------------------------------- start networks
 
 
+def cap_outdegree(X: np.ndarray, cap: np.ndarray, rng: np.random.Generator) -> None:
+    """In place: actors with more than ``cap[b]`` out-ties keep a random ``cap[b]`` of them.
+    ``cap[b] <= 0`` means no cap for that network."""
+    B, n, _ = X.shape
+    for b in range(B):
+        c = int(cap[b])
+        if c <= 0:
+            continue
+        over = X[b].sum(axis=1) > c
+        if not over.any():
+            continue
+        keys = rng.random((int(over.sum()), n)) * X[b, over]  # 0 where there is no tie
+        thr = np.partition(keys, n - c, axis=1)[:, n - c]  # the c-th largest key per row
+        X[b, over] = (keys >= thr[:, None]).astype(X.dtype)
+
+
 def sample_start_networks(
     B: int,
     n: int,
@@ -81,17 +101,40 @@ def sample_start_networks(
     model: Model,
     *,
     backend="numpy",
+    start: str = "m2",
 ) -> tuple[np.ndarray, dict]:
-    """Half Erdos-Renyi at d ~ U(0.02, 0.20), half burnt in for 10 n ministeps at
-    an independent theta0 ~ prior from such a seed. Returns X0 (B, n, n) int8."""
+    """Start networks: half Erdos-Renyi, half burnt in for 10 n ministeps at an
+    independent theta0 ~ prior from such a seed. Returns X0 (B, n, n) int8.
+
+    ``start="m2"``: tie fraction d ~ U(0.02, 0.20) for every start (docs/PRIORS_M2.md).
+    ``start="sparse"``: half the starts instead draw a mean degree k ~ U(2, 10), so
+    d = k / (n - 1) falls with n as real friendship networks do; half of those are
+    then capped at ceil(k) + U{1..3} out-ties per actor, as nomination surveys cap
+    them (docs/PRIORS_M4.md). The burn-in is applied before the cap.
+    """
+    if start not in ("m2", "sparse"):
+        raise ValueError(f"unknown start regime {start!r}")
     d = rng.uniform(*ER_DENSITY, size=B)
+    sparse = np.zeros(B, dtype=bool)
+    cap = np.full(B, -1)
+    if start == "sparse":
+        sparse = rng.random(B) < 0.5
+        k = rng.uniform(*MEAN_DEGREE, size=B)
+        d = np.where(sparse, k / (n - 1), d)
+        capped = sparse & (rng.random(B) < 0.5)
+        cap = np.where(
+            capped, np.ceil(k) + rng.integers(CAP_EXCESS[0], CAP_EXCESS[1] + 1, size=B), -1
+        )
     X = (rng.random((B, n, n)) < d[:, None, None]).astype(OUT_DTYPE)
     zero_diagonal(X)
     burn = rng.random(B) < 0.5
     theta0 = theta_prior.sample(B, rng)[:, theta_prior.dim - model.K :]  # drop the rate column(s)
     steps = np.where(burn, BURNIN_STEPS_PER_ACTOR * n, 0)
     X0 = simulate_period(X, theta0, model=model, rng=rng, n_steps=steps, backend=backend)
-    return X0, {"er_density": d, "burnin": burn, "theta0": theta0}
+    if (cap > 0).any():
+        X0 = np.ascontiguousarray(X0)
+        cap_outdegree(X0, cap, rng)
+    return X0, {"er_density": d, "burnin": burn, "theta0": theta0, "sparse": sparse, "cap": cap}
 
 
 # ------------------------------------------------------------------- summaries
@@ -252,6 +295,7 @@ def generate_m2(
     keep_networks: bool = True,
     progress: bool = False,
     waves: int = 2,
+    start: str = "m2",
 ) -> M2TrainingSet:
     """Draw ``N`` (n, covariates, X0, theta) from the population, simulate ``waves - 1``
     periods with one rate per period and shared effects, summarise.
@@ -279,7 +323,7 @@ def generate_m2(
         n = int(rng.integers(n_lo, n_hi + 1))
         covs = sample_covariates(B, n, rng)
         model = m2_model(covs)
-        X0, _ = sample_start_networks(B, n, rng, prior, model, backend=backend)
+        X0, _ = sample_start_networks(B, n, rng, prior, model, backend=backend, start=start)
         theta = prior.sample(B, rng)
         effects, rates = theta[:, R:], theta[:, :R]
         later = []
@@ -324,7 +368,13 @@ def generate_m2(
             "effects": probe.labels,
             "prior_low": prior.low.tolist(),
             "prior_high": prior.high.tolist(),
-            "start": "population: 50% ER d~U(0.02,0.2), 50% 10n-step SAOM burn-in at theta0~prior",
+            "start": (
+                "population: 50% ER d~U(0.02,0.2), 50% 10n-step SAOM burn-in at theta0~prior"
+                if start == "m2"
+                else "sparse: 50% d~U(0.02,0.2) / 50% mean degree k~U(2,10), half of those "
+                "capped at ceil(k)+U{1..3} out-ties; 50% 10n-step SAOM burn-in at theta0~prior"
+            ),
+            "start_regime": start,
             "covariates": "v: 50% N(0,1) / 50% Likert K in {3,4,5}, centred; g: K in {2,3,4}",
         },
     )

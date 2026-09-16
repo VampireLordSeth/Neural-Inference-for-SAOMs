@@ -28,6 +28,7 @@ def main():
     ap.add_argument("--waves", type=int, default=2)
     ap.add_argument("--n-max", type=int, default=80)
     ap.add_argument("--rate-max", type=float, default=12.0)
+    ap.add_argument("--start", default="m2", choices=["m2", "sparse"], help="start-network regime")
     args = ap.parse_args()
 
     backend = args.backend
@@ -55,6 +56,7 @@ def main():
         progress=True,
         waves=args.waves,
         n_range=(20, args.n_max),
+        start=args.start,
     )
     dt = time.perf_counter() - t0
     print(f"simulated {args.N} panels in {dt:.1f}s ({args.N / dt:,.0f} panels/s)")

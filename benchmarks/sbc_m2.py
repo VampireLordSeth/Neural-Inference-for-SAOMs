@@ -36,6 +36,7 @@ def main():
     ap.add_argument("--waves", type=int, default=2)
     ap.add_argument("--rate-max", type=float, default=12.0)
     ap.add_argument("--n-max", type=int, default=80)
+    ap.add_argument("--start", default="m2", choices=["m2", "sparse"], help="start-network regime")
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -58,6 +59,7 @@ def main():
         backend=args.backend,
         keep_networks=False,
         waves=args.waves,
+        start=args.start,
     )
     gen_s = time.perf_counter() - t0
     print(
