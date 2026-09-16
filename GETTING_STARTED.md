@@ -340,10 +340,14 @@ bandwidth is modest, so treat it as a throughput box.
     n ≤ 200, rate ≤ 20; 10⁶ panels (3.7 h generation, 75 panels/s), coverage
     nominal within 3.5 pts at every n. Glasgow (n=129, 3 waves): five of nine
     on RSiena, rates read 25 % low — Glasgow sits at the sparse, uniform-degree
-    edge of the population (tie fraction 5th pctile, out-degree sd 2nd). Next:
-    step 2, starts with fixed mean degree (d ~ U(2/n, 10/n)) and a nomination
-    cap; then co-evolution on Glasgow; then Knecht classrooms. Sparse simulator
-    for n > 500 remains.
+    edge of the population (tie fraction 5th pctile, out-degree sd 2nd).
+    Step 2 done the same day (`docs/PRIORS_M4.md`, `start="sparse"` in
+    `population.py`): half the starts draw mean degree k~U(2,10), half of those
+    out-degree-capped; regenerated and retrained, coverage nominal within 3 pts,
+    rate tilt gone; Glasgow all nine inside the 90% intervals, max |z| 1.72
+    (rates 0.9 and 1.5 sd). Next: co-evolution on Glasgow (sparse regime in
+    `npe_coev.py generate`); Knecht classrooms. Sparse simulator for n > 500
+    remains.
 
 ## 8. Conventions worth keeping
 

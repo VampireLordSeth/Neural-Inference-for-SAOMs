@@ -168,7 +168,85 @@ Two implications, one for the paper and one for step 2:
   fixed the s50 rate under-reads because s50 sits in the middle of the
   population; Glasgow sits at its edge.
 
-Next: step 2, the sparse-start population (above), then the co-evolution
-estimator on Glasgow's network × alcohol (RSiena fit already in
-`benchmarks/glasgow/rsiena_coevolution.json`), then the many-classroom
-application (Knecht).
+## Step 2: the sparse-start population (2026-09-16)
+
+Design: `docs/PRIORS_M4.md`. One change — half the start networks draw a mean
+degree k ~ U(2, 10) instead of a tie fraction, and half of those are capped at
+ceil(k) + U{1..3} out-ties per actor. Artefacts: `train_m4b.npz` (Spark),
+`npe_m4b.*`, `npe_m4b_sbc_pop.{npz,png}`, `npe_m4b_report.txt`, `m4b.log`.
+
+| | |
+|---|---|
+| training set | 10⁶ panels, seed 71, **9,511 s (105 panels/s)** — faster than step 1's 75/s, sparser starts being cheaper to update |
+| estimator | NSF 8 × 128, batch 1024, lr 5e-4; 217 epochs, ≈ 110 min; best validation loss −3.193 (not comparable with step 1's −2.919: different population) |
+| Glasgow | 0.06 s |
+
+### Calibration (fresh 4,000 draws from the sparse population, n ∈ [20, 191])
+
+![M4 step 2 SBC ranks](figures/m4b_sbc_ranks_population.png)
+
+| parameter | KS p | mean rank | 50 % | 80 % | 90 % | 95 % |
+|---|---|---|---|---|---|---|
+| rate₁ | 0.555 | 0.499 | 0.493 | 0.782 | 0.887 | 0.941 |
+| rate₂ | < 0.001 | 0.480 | 0.493 | 0.794 | 0.890 | 0.940 |
+| density | 0.183 | 0.506 | 0.494 | 0.789 | 0.885 | 0.933 |
+| recip | 0.045 | 0.498 | 0.479 | 0.778 | 0.884 | 0.941 |
+| transTrip | 0.001 | 0.487 | 0.477 | 0.772 | 0.881 | 0.935 |
+| cycle3 | 0.004 | 0.509 | 0.470 | 0.773 | 0.884 | 0.934 |
+| altX(v) | 0.456 | 0.500 | 0.499 | 0.788 | 0.887 | 0.940 |
+| egoX(v) | 0.102 | 0.489 | 0.494 | 0.788 | 0.889 | 0.942 |
+| sameX(g) | 0.041 | 0.508 | 0.483 | 0.780 | 0.885 | 0.937 |
+| binomial s.e. | | 0.005 | 0.008 | 0.006 | 0.005 | 0.003 |
+
+- **Coverage nominal within 3 points for all nine**, over a wider population
+  than step 1 — the estimator absorbed the extra input range at the same 10⁶
+  budget. No observation needed clamped draws.
+- The step-1 rate₁ tilt (0.53–0.55 in every band) is **gone** (0.499; by band
+  0.487–0.512). transTrip's closure tilt shrank from 0.464 to 0.487.
+- One new tilt: rate₂ reads slightly high at large n (mean rank 0.435–0.44 for
+  n ≥ 140, ≈ 0.15 sd), where step 1 had it at 0.47. Coverage there is still
+  nominal. Worth watching, not acting on.
+
+### Glasgow, three waves, n = 129: step 1 vs step 2
+
+| parameter | RSiena est ± se | step 1 (dense starts) | z₁ | **step 2 (sparse starts)** | **z₂** |
+|---|---|---|---|---|---|
+| **rate₁** | 10.71 ± 1.01 | 7.70 ± 0.82 | 3.67 | **9.11 ± 1.77** [7.29, 11.78] | **0.90** |
+| **rate₂** | 9.04 ± 0.75 | 7.45 ± 0.66 | 2.41 | **7.89 ± 0.75** [6.77, 9.16] | **1.53** |
+| density | −3.36 ± 0.10 | −3.14 ± 0.10 | −2.16 | −3.20 ± 0.10 [−3.36, −3.05] | −1.72 |
+| recip | 2.25 ± 0.11 | 2.39 ± 0.14 | −0.98 | **2.25 ± 0.12** [2.05, 2.45] | 0.01 |
+| transTrip | 0.62 ± 0.04 | 0.61 ± 0.06 | 0.21 | 0.61 ± 0.05 [0.52, 0.70] | 0.23 |
+| cycle3 | −0.42 ± 0.08 | −0.42 ± 0.12 | 0.07 | −0.39 ± 0.10 [−0.54, −0.22] | −0.31 |
+| altX(v) | −0.01 ± 0.03 | 0.03 ± 0.05 | −0.88 | 0.03 ± 0.04 [−0.04, 0.10] | −0.80 |
+| egoX(v) | −0.01 ± 0.04 | −0.04 ± 0.04 | 0.62 | 0.03 ± 0.04 [−0.04, 0.10] | −1.07 |
+| sameX(g) | 0.89 ± 0.10 | 0.68 ± 0.12 | 1.69 | 0.71 ± 0.12 [0.52, 0.90] | 1.54 |
+
+(z = (RSiena − ours) / our sd; 90 % intervals for step 2 in brackets.)
+
+- **All nine RSiena estimates now lie inside the 90 % intervals; max |z| 1.72**
+  (was 3.67). The rate under-read is resolved by the population change alone:
+  rate₁ moved from 3.7 sd to 0.9 sd of RSiena, rate₂ from 2.4 to 1.5, density
+  from 2.2 to 1.7, with no change to the estimator, summaries or budget.
+- The rate₁ posterior is also **twice as wide** (sd 1.77 vs 0.82) and now
+  matches RSiena's standard error more closely than step 1 did (1.01). Step
+  1's narrow interval was over-confidence at the edge of its population — the
+  in-distribution screen would have flagged it, the calibration table could
+  not. Step 2 puts Glasgow inside the population and the interval widens to
+  what the data support.
+- Reciprocity lands on RSiena to two decimals; transTrip, cycle3 and altX are
+  unchanged and on. sameX(g) and density remain 1.5–1.7 sd off in the same
+  direction as before — small, but consistent across both fits, so probably
+  not noise. Both are effects that the out-degree cap in the later waves
+  could bias (a capped actor cannot add the same-sex tie the model wants);
+  the design note lists this as the next suspect.
+
+What this settles: the step-1 failure was the population's shape, as
+diagnosed, and the fix was cheap — a start prior that keeps mean degree
+rather than tie fraction fixed as n grows. The estimator for n ≤ 200 is now
+calibrated over a population that contains real school networks and agrees
+with RSiena on all nine parameters of the Glasgow panel in 0.06 s.
+
+Next: the co-evolution estimator on Glasgow's network × alcohol (RSiena fit
+already in `benchmarks/glasgow/rsiena_coevolution.json`; needs the sparse
+regime in `npe_coev.py generate`), then the many-classroom application
+(Knecht).
