@@ -42,6 +42,21 @@ def test_spec_from_data_matches_rsiena_constants():
     assert one.zbar == pytest.approx(Z[:, 0].mean())
 
 
+def test_constants_cache_follows_the_spec_not_its_address(backend):
+    """A generation run builds one BehaviourSpec per chunk; freed specs get their
+    addresses reused, so a cache keyed on id(spec) served stale constants to most
+    chunks (2026-09-14..16). The cache must track the spec object itself."""
+    bmodel = BehaviourModel(["linear"], [])
+    B = 16
+    for c in range(30):
+        spec = BehaviourSpec(1, 3 + c % 3, np.full(B, float(c)), np.full(B, 0.5))
+        zbar, sm, deltas = bmodel.constants(spec, B, backend)
+        assert float(to_np(backend, zbar)[0, 0]) == float(c)
+        assert to_np(backend, deltas).tolist() == [[-1.0, 0.0, 1.0]]
+    # and it is a cache: the same spec again returns the same arrays
+    assert bmodel.constants(spec, B, backend)[0] is zbar
+
+
 @pytest.mark.parametrize("effect", ALL_BEH)
 def test_move_contributions_match_reference(backend, effect):
     rng, X, z, spec = case()

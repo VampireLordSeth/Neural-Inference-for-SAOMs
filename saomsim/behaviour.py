@@ -81,19 +81,24 @@ class BehaviourModel:
     # ------------------------------------------------------------ helpers
     def constants(self, spec, B, bk):
         """zbar and simMean as (B, 1) device arrays, plus the {-1,0,+1} option vector.
-        Cached per (backend, spec, B): these are uploaded once per simulation, not
-        once per ministep (which cost a quarter of the run time)."""
-        key = (bk.name, str(bk.device), id(spec), B)
+        Cached per (backend, B) for the ``spec`` object last seen: uploaded once per
+        simulation, not once per ministep (which cost a quarter of the run time).
+
+        The entry keeps a reference to ``spec`` and is validated by identity, never by
+        ``id()`` alone: a freed spec's address is reused by the next one, and keying on
+        ``id(spec)`` served most chunks of a generation run the previous chunk's
+        constants (2026-09-14 to 09-16; see docs/M3_RESULTS.md)."""
+        key = (bk.name, str(bk.device), B)
         cache = self.__dict__.setdefault("_const_cache", {})
         hit = cache.get(key)
-        if hit is None:
+        if hit is None or hit[0] is not spec:
             zbar = bk.array(np.broadcast_to(np.asarray(spec.zbar, dtype=DTYPE), (B,)))[:, None]
             sm = bk.array(np.broadcast_to(np.asarray(spec.sim_mean, dtype=DTYPE), (B,)))[:, None]
             deltas = bk.array(np.array([-1.0, 0.0, 1.0]))[None, :]
             if len(cache) > 8:
                 cache.clear()
-            hit = cache[key] = (zbar, sm, deltas)
-        return hit
+            hit = cache[key] = (spec, zbar, sm, deltas)
+        return hit[1:]
 
     # ------------------------------------------------ behaviour ministep
     def move_contributions(self, X, z, actor, spec, bk):
