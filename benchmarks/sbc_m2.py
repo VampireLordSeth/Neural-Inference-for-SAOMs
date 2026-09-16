@@ -18,7 +18,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from benchmarks.coverage import coverage_table  # noqa: E402
+from benchmarks.coverage import coverage_table, sbc_ranks_chunked  # noqa: E402
 from benchmarks.m2 import m2_prior  # noqa: E402
 from saomsim.population import generate_m2, m2_model, sample_covariates, transform_m2  # noqa: E402
 
@@ -39,7 +39,7 @@ def main():
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
-    from sbi.diagnostics import check_sbc, run_sbc
+    from sbi.diagnostics import check_sbc
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tag = f"_n{args.n}" if args.n else "_pop"
@@ -60,7 +60,10 @@ def main():
         waves=args.waves,
     )
     gen_s = time.perf_counter() - t0
-    print(f"fresh test set: {args.N} panels, n in [{ts.n.min()}, {ts.n.max()}], {gen_s:.0f}s")
+    print(
+        f"fresh test set: {args.N} panels, n in [{ts.n.min()}, {ts.n.max()}], {gen_s:.0f}s",
+        flush=True,
+    )
     model = m2_model(sample_covariates(1, 20, rng))
     X = transform_m2(ts.summary, ts.summary_names, model)
 
@@ -68,8 +71,13 @@ def main():
     thetas = torch.as_tensor(ts.theta, dtype=torch.float32, device=device)
     xs = torch.as_tensor(X, dtype=torch.float32, device=device)
     t0 = time.perf_counter()
-    ranks, dap = run_sbc(
-        thetas, xs, posterior, num_posterior_samples=args.posterior_samples, show_progress_bar=False
+    ranks, dap = sbc_ranks_chunked(
+        posterior,
+        thetas,
+        xs,
+        args.posterior_samples,
+        chunk=args.chunk,
+        log=lambda m: print(m, flush=True),
     )
     checks = check_sbc(ranks, thetas, dap, num_posterior_samples=args.posterior_samples)
     ranks_np = ranks.cpu().numpy()

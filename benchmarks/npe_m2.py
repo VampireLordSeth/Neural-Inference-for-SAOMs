@@ -151,11 +151,13 @@ def main():
     # calibration by size band
     log("\nmean rank/L by n band (0.5 ideal):")
     u = ranks_np / (args.posterior_samples + 1)
-    for lo in range(20, 81, 20):
-        m = (n_te >= lo) & (n_te < lo + 20)
+    n_hi = int(n_te.max())
+    step = 20 if n_hi <= 100 else 30
+    for lo in range(20, n_hi + 1, step):
+        m = (n_te >= lo) & (n_te < lo + step)
         if m.any():
             log(
-                f"  n {lo:>2}..{lo + 19:<2} (N={m.sum():>4}): "
+                f"  n {lo:>3}..{min(lo + step - 1, n_hi):<3} (N={m.sum():>4}): "
                 + " ".join(f"{name}={u[m, k].mean():.3f}" for k, name in enumerate(ts.theta_names))
             )
     fig, _ = sbc_rank_plot(
