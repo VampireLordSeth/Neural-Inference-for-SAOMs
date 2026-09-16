@@ -332,9 +332,18 @@ bandwidth is modest, so treat it as a throughput box.
     recovered, posterior correlation −0.14. 10⁷ three-wave M3a done 2026-09-14:
     rates on RSiena's values, coverage nominal within 1 pt. 10⁷ co-evolution
     done 2026-09-14: calibrated on all 14; selection on RSiena; influence/quad
-    pair still 1.5–1.7 sd off and validation loss worse than 10⁶ (optimiser
-    settings suspected — re-run at 1024/5e-4 pending). Next: M4 (Glasgow n=160
-    → Knecht classrooms), sparse simulator for n > 500.
+    pair 1.5–1.7 sd off and validation loss worse than 10⁶. Re-run at 1024/5e-4
+    (2026-09-16, 31 h): loss 5.86 vs 5.91 — optimiser ruled out, gap unresolved
+    (suspect the summary-only shards; one-shard test pending); influence/quad
+    moved to within 1.1 sd of RSiena, max |z| 1.27 over 14.
+11. M4 step 1 done 2026-09-16 (`docs/M4_RESULTS.md`): M3a estimator widened to
+    n ≤ 200, rate ≤ 20; 10⁶ panels (3.7 h generation, 75 panels/s), coverage
+    nominal within 3.5 pts at every n. Glasgow (n=129, 3 waves): five of nine
+    on RSiena, rates read 25 % low — Glasgow sits at the sparse, uniform-degree
+    edge of the population (tie fraction 5th pctile, out-degree sd 2nd). Next:
+    step 2, starts with fixed mean degree (d ~ U(2/n, 10/n)) and a nomination
+    cap; then co-evolution on Glasgow; then Knecht classrooms. Sparse simulator
+    for n > 500 remains.
 
 ## 8. Conventions worth keeping
 

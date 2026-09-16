@@ -259,3 +259,54 @@ s50, three waves, network × alcohol:
   closes it is the next experiment.
 - Selection × influence posterior correlation −0.12 (−0.14 at 10⁶): stable.
 - Cost: 0.5 s per 14-parameter posterior.
+
+## Ten million co-evolution panels, re-run at the 10⁶ optimiser settings (2026-09-16)
+
+Same ten shards, NSF 8 × 128, **batch 1024, lr 5e-4, patience 20** — the
+settings the 10⁶ co-evolution model used: **265 epochs, 1,872 min (31 h)**, best
+validation loss **5.860**. Against 5.906 for the batch-4096 run and 5.157 at
+10⁶, the optimiser explains almost none of the gap. The open item stands with
+its likeliest cause removed; the remaining suspects are the data rather than the
+fit — the 10⁷ shards were generated summary-only in 4,096-panel chunks (one n
+and behaviour scale per chunk) against 2,048 with networks kept for the 10⁶ set.
+The clean test is one shard (10⁶ panels) trained at these settings: a loss near
+5.9 puts it in the shards, near 5.2 in the volume. About 2 h; not yet run.
+
+![M3b 10M-b SBC ranks](figures/m3b_10m_b_sbc_ranks_population.png)
+
+Calibration (fresh 4,000 draws): coverage within 2.6 points of nominal on all
+14; density (90 % at 0.926, 95 % at 0.962) and linear (0.916) are now
+**over**-covered — the posterior a little wider than it needs to be, consistent
+with the higher validation loss. Mean ranks 0.474–0.515; transTrip (0.474) and
+density (0.478) carry the largest tilts; selection simZ 0.499 (KS p 0.88),
+influence avAlt 0.512 (p 0.03).
+
+s50, three waves, network × alcohol:
+
+| parameter | RSiena | 10⁷ (4096 / 1e-3) | **10⁷ (1024 / 5e-4)** | (RS − b)/sd |
+|---|---|---|---|---|
+| rate_net₁ | 6.53 ± 1.07 | 5.44 ± 0.89 | 5.37 ± 0.91 | 1.27 |
+| rate_net₂ | 5.15 ± 0.84 | 5.47 ± 1.06 | 5.47 ± 1.16 | −0.28 |
+| rate_beh₁ | 1.32 ± 0.39 | 1.46 ± 0.41 | 1.42 ± 0.38 | −0.25 |
+| rate_beh₂ | 1.78 ± 0.45 | 2.49 ± 0.89 | 2.33 ± 0.82 | −0.68 |
+| density | −2.76 ± 0.15 | −2.85 ± 0.28 | −2.76 ± 0.28 | −0.02 |
+| recip | 2.39 ± 0.22 | 2.72 ± 0.25 | 2.57 ± 0.27 | −0.65 |
+| transTrip | 0.66 ± 0.15 | 0.67 ± 0.18 | 0.58 ± 0.15 | 0.55 |
+| cycle3 | −0.10 ± 0.30 | −0.23 ± 0.33 | −0.09 ± 0.29 | −0.05 |
+| egoZ | 0.05 ± 0.11 | 0.11 ± 0.17 | 0.05 ± 0.17 | 0.00 |
+| altZ | −0.06 ± 0.11 | −0.11 ± 0.15 | −0.08 ± 0.16 | 0.13 |
+| **simZ (selection)** | **1.42 ± 0.64** | 1.86 ± 0.82 | **1.91 ± 0.80** | −0.61 |
+| linear | 0.42 ± 0.24 | 0.42 ± 0.48 | 0.41 ± 0.44 | 0.02 |
+| quad | −0.60 ± 0.35 | −1.06 ± 0.30 | **−0.94 ± 0.33** | 1.04 |
+| **avAlt (influence)** | **1.33 ± 0.86** | 2.71 ± 0.80 | **2.33 ± 0.91** | −1.09 |
+
+- All 14 inside the 90 % intervals; **max |z| 1.27**, the smallest of the three
+  co-evolution fits. Density, cycle3 and egoZ land on RSiena to two decimals.
+- **The influence/quad pair moved toward RSiena**: avAlt 2.33 (z −1.09, from
+  −1.72) and quad −0.94 (z 1.04, from 1.53). It did so with the same data and
+  a different optimiser trajectory, which says the pair is sensitive to the fit
+  in a way the well-identified parameters are not — consistent with the
+  weakly identified direction described above, and a reason to prefer
+  reporting it with the interval rather than the point.
+- Selection × influence posterior correlation −0.15 (−0.12, −0.14 before):
+  stable. Cost: 0.5 s per posterior.
