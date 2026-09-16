@@ -333,9 +333,12 @@ bandwidth is modest, so treat it as a throughput box.
     rates on RSiena's values, coverage nominal within 1 pt. 10⁷ co-evolution
     done 2026-09-14: calibrated on all 14; selection on RSiena; influence/quad
     pair 1.5–1.7 sd off and validation loss worse than 10⁶. Re-run at 1024/5e-4
-    (2026-09-16, 31 h): loss 5.86 vs 5.91 — optimiser ruled out, gap unresolved
-    (suspect the summary-only shards; one-shard test pending); influence/quad
-    moved to within 1.1 sd of RSiena, max |z| 1.27 over 14.
+    (2026-09-16, 31 h): loss 5.86 vs 5.91. One-shard test then gave 7.02 and
+    exposed the cause: the constants cache in `behaviour.py` (7daba42) was keyed
+    on id(spec) and served most generation chunks stale zbar/simMean — every
+    co-evolution set after 2026-09-14 08:32 is corrupt (10⁶ M3b and network-only
+    models unaffected). Fixed 52afbb9 with a regression test; shards being
+    regenerated and the 10⁷ run redone (`data/coev_10m_c.sh`).
 11. M4 step 1 done 2026-09-16 (`docs/M4_RESULTS.md`): M3a estimator widened to
     n ≤ 200, rate ≤ 20; 10⁶ panels (3.7 h generation, 75 panels/s), coverage
     nominal within 3.5 pts at every n. Glasgow (n=129, 3 waves): five of nine

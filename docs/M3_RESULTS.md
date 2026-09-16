@@ -207,6 +207,25 @@ CPU-side summaries are the bottleneck to move to the GPU first), and M4.
 
 ## Ten million co-evolution panels (2026-09-14)
 
+> **Correction, 2026-09-16.** The ten shards this section and the next were
+> trained on were simulated with a bug: `7daba42` cached the behaviour
+> centring constants (zbar, simMean) per `id(spec)`, and because
+> `generate_coev` builds one `BehaviourSpec` per chunk and Python reuses a
+> freed object's address, most chunks after the first two were simulated with
+> an *earlier* chunk's constants — a different behaviour scale and different
+> chains (15 of 20 chunks in a reproduction; `tests/test_behaviour.py::
+> test_constants_cache_follows_the_spec_not_its_address`). The fresh SBC sets
+> drawn for both 10⁷ models carried the same corruption, which is why they
+> looked calibrated. The bug was found by the one-shard test proposed below:
+> a single 10⁶ shard trains to validation loss **7.02**, against 5.16 for the
+> clean 10⁶ set — the "gap" was never about volume or the optimiser. Fixed in
+> `52afbb9`; the 10⁶ M3b results above (2026-09-13) predate the bug and stand;
+> the network-only models never touch `BehaviourModel`. The two sections below
+> are kept as the record of what was seen; their numbers are not results. The
+> shards are being regenerated (`data/coev_10m_c.sh`) and the section after
+> them will replace both.
+
+
 Ten summary-only shards (`data/coev_shards`, seeds 60–69, 4096-panel chunks;
 ~3 h after the constants-caching fix in `behaviour.py`), same NSF 8 × 128,
 batch 4096, lr 1e-3, patience 15: **165 epochs, 493 min**. Best validation loss
@@ -270,7 +289,9 @@ its likeliest cause removed; the remaining suspects are the data rather than the
 fit — the 10⁷ shards were generated summary-only in 4,096-panel chunks (one n
 and behaviour scale per chunk) against 2,048 with networks kept for the 10⁶ set.
 The clean test is one shard (10⁶ panels) trained at these settings: a loss near
-5.9 puts it in the shards, near 5.2 in the volume. About 2 h; not yet run.
+5.9 puts it in the shards, near 5.2 in the volume. Run 2026-09-16: **7.02** —
+worse than either, which is what sent us looking at the generation code and
+found the stale-constants bug (correction above).
 
 ![M3b 10M-b SBC ranks](figures/m3b_10m_b_sbc_ranks_population.png)
 
