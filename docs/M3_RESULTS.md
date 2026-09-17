@@ -219,7 +219,9 @@ CPU-side summaries are the bottleneck to move to the GPU first), and M4.
 > looked calibrated. The bug was found by the one-shard test proposed below:
 > a single 10⁶ shard trains to validation loss **7.02**, against 5.16 for the
 > clean 10⁶ set — the "gap" was never about volume or the optimiser. Fixed in
-> `52afbb9`; the 10⁶ M3b results above (2026-09-13) predate the bug and stand;
+> `52afbb9`, and confirmed: one *regenerated* shard trains to **5.149**, the
+> clean 10⁶ set's 5.157 to within noise. The 10⁶ M3b results above (2026-09-13)
+> predate the bug and stand;
 > the network-only models never touch `BehaviourModel`. The two sections below
 > are kept as the record of what was seen; their numbers are not results. The
 > shards are being regenerated (`data/coev_10m_c.sh`) and the section after
