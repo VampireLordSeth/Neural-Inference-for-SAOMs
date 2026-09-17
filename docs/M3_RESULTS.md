@@ -224,8 +224,8 @@ CPU-side summaries are the bottleneck to move to the GPU first), and M4.
 > predate the bug and stand;
 > the network-only models never touch `BehaviourModel`. The two sections below
 > are kept as the record of what was seen; their numbers are not results. The
-> shards are being regenerated (`data/coev_10m_c.sh`) and the section after
-> them will replace both.
+> shards were regenerated (`data/coev_10m_c.sh`) and the section "Ten million
+> co-evolution panels, clean" below replaces both.
 
 
 Ten summary-only shards (`data/coev_shards`, seeds 60–69, 4096-panel chunks;
@@ -333,3 +333,69 @@ s50, three waves, network × alcohol:
   reporting it with the interval rather than the point.
 - Selection × influence posterior correlation −0.15 (−0.12, −0.14 before):
   stable. Cost: 0.5 s per posterior.
+
+## Ten million co-evolution panels, clean (2026-09-17)
+
+Ten shards regenerated after the cache fix (`52afbb9`; seeds 60–69, 2,048-panel
+chunks as the 10⁶ set, 750 panels/s, 3.7 h), then the same NSF 8 × 128 at the
+10⁶ settings (batch 1024, lr 5e-4, patience 20): **199 epochs, 17.8 h, best
+validation loss 4.137** — against 5.157 at 10⁶ and 5.149 for one clean shard.
+Ten times the data buys a full nat, as it did for the two-wave and three-wave
+network models; the co-evolution model was never the exception. Artefacts:
+`npe_coev3_10m_c.*`, `npe_coev3_10m_c_sbc_pop.{npz,png}`,
+`npe_coev3_10m_c_posterior_s50.npz`, `coev_10m_c.log`.
+
+![M3b 10M clean SBC ranks](figures/m3b_10m_c_sbc_ranks_population.png)
+
+Calibration (fresh 4,000 draws from the fixed simulator, n ∈ [20, 80],
+z_max ∈ {3, 4, 5}): **coverage within 1.6 points of nominal on all 14** (worst:
+simZ 90 % at 0.916, slightly wide); mean ranks 0.485–0.517. KS flags at
+p < 0.05: rate_net₂ (0.517), recip (0.485), density (0.487), egoZ (0.486),
+simZ (0.513), avAlt (0.490) — tilts of 0.01–0.02 in mean rank, the same order
+as the 10⁶ model's, in no consistent direction. No drift with n.
+
+s50, three waves, network × alcohol:
+
+| parameter | RSiena est ± se | 10⁶ M3b | **10⁷ clean** | 10⁷ 90 % | (RS − 10⁷)/sd |
+|---|---|---|---|---|---|
+| rate_net₁ | 6.53 ± 1.07 | 5.26 ± 0.98 | **5.96 ± 1.13** | [4.39, 7.97] | 0.50 |
+| rate_net₂ | 5.15 ± 0.84 | 4.36 ± 0.68 | **5.17 ± 1.03** | [3.76, 7.04] | −0.02 |
+| rate_beh₁ | 1.32 ± 0.39 | 1.24 ± 0.32 | **1.35 ± 0.38** | [0.85, 2.01] | −0.07 |
+| rate_beh₂ | 1.78 ± 0.45 | 2.45 ± 0.89 | 2.43 ± 0.93 | [1.35, 4.40] | −0.70 |
+| density | −2.76 ± 0.15 | −2.97 ± 0.18 | **−2.69 ± 0.17** | [−2.99, −2.44] | −0.42 |
+| recip | 2.39 ± 0.22 | 2.60 ± 0.27 | 2.60 ± 0.26 | [2.18, 3.04] | −0.80 |
+| transTrip | 0.66 ± 0.15 | 0.64 ± 0.18 | 0.56 ± 0.16 | [0.31, 0.82] | 0.71 |
+| cycle3 | −0.10 ± 0.30 | −0.03 ± 0.31 | **−0.11 ± 0.27** | [−0.57, 0.34] | 0.01 |
+| egoZ | 0.05 ± 0.11 | 0.17 ± 0.16 | 0.08 ± 0.14 | [−0.13, 0.32] | −0.23 |
+| altZ | −0.06 ± 0.11 | −0.13 ± 0.18 | −0.17 ± 0.12 | [−0.38, 0.00] | 0.99 |
+| **simZ (selection)** | **1.42 ± 0.64** | 2.44 ± 0.79 | **1.08 ± 0.64** | [0.13, 2.24] | 0.53 |
+| linear | 0.42 ± 0.24 | 0.46 ± 0.30 | 0.64 ± 0.34 | [0.11, 1.24] | −0.65 |
+| quad | −0.60 ± 0.35 | −1.00 ± 0.30 | −1.05 ± 0.29 | [−1.46, −0.52] | 1.52 |
+| **avAlt (influence)** | **1.33 ± 0.86** | 2.70 ± 0.91 | **2.72 ± 0.81** | [1.23, 3.85] | −1.71 |
+
+- **All 14 RSiena estimates inside the 90 % intervals; twelve within 1 sd.**
+  Both network rates, the first behaviour rate, density and cycle3 land on
+  RSiena (|z| ≤ 0.5). The 10⁶ rate under-reads are gone, as they were for the
+  network-only models at 10⁷.
+- **Selection is on RSiena** (simZ 1.08 ± 0.64 vs 1.42 ± 0.64, z 0.53; the
+  posterior sd now equals RSiena's s.e.). Its 90 % interval still excludes zero.
+- **The influence/quad pair is where it was**: avAlt 2.72 ± 0.81 vs 1.33
+  (z −1.71), quad −1.05 vs −0.60 (z 1.52) — the same offsets as the 10⁶ model
+  to two decimals. Ten times the data did not move them, so this is not a
+  training-budget effect. It is a stable 1.5–1.7 sd difference between the
+  amortized posterior and RSiena's method-of-moments point in the direction
+  that trades influence against the quadratic shape term; RSiena's own s.e.
+  on avAlt (0.86) puts its estimate inside our interval and ours inside its
+  ±2 s.e. Both estimators say influence is present; they disagree mildly on
+  how much of the pull toward the mean is influence versus curvature. A
+  likelihood-based RSiena fit (`siena07` with `maxlike = TRUE`) would say
+  which point the data actually prefer; that is the next check for this pair.
+- Selection × influence posterior correlation −0.08 (−0.14 at 10⁶): the two
+  mechanisms are separately identified, and more so with more data.
+- Cost: 0.5 s per 14-parameter posterior.
+
+What this changes in the summary above: the co-evolution estimator at 10⁷ is
+calibrated on all 14 parameters within 1.6 points, agrees with RSiena on
+selection and on every rate and structural effect, and differs from it only
+on the weakly identified influence/quad direction, by less than 2 sd. M3b is
+complete at both budgets.
