@@ -28,7 +28,16 @@ from .behaviour import (
     spec_from_data,
 )
 from .effects import Model
-from .population import BURNIN_STEPS_PER_ACTOR, ER_DENSITY, N_MAX, N_RANGE, _pack
+from .population import (
+    BURNIN_STEPS_PER_ACTOR,
+    CAP_EXCESS,
+    ER_DENSITY,
+    MEAN_DEGREE,
+    N_MAX,
+    N_RANGE,
+    _pack,
+    cap_outdegree,
+)
 from .prior import EXTRA_SUMMARIES, BoxPrior, summaries, transform_summaries
 from .simulate import simulate_period
 
@@ -60,8 +69,12 @@ def coev_theta_names(waves: int) -> list[str]:
     return rn + rb + NET_EFFECTS + SEL_EFFECTS + BEH_EFFECTS
 
 
-def coev_prior(waves: int = 2) -> BoxPrior:
+def coev_prior(waves: int = 2, rate_net=None) -> BoxPrior:
+    """The M3b box; ``rate_net`` overrides the network-rate range (default U(1, 12))."""
     names = coev_theta_names(waves)
+    ranges = dict(RANGES)
+    if rate_net is not None:
+        ranges["rate_net"] = tuple(rate_net)
     lo, hi = [], []
     for nm in names:
         key = (
@@ -71,8 +84,8 @@ def coev_prior(waves: int = 2) -> BoxPrior:
             if nm.startswith("rate_beh")
             else nm
         )
-        lo.append(RANGES[key][0])
-        hi.append(RANGES[key][1])
+        lo.append(ranges[key][0])
+        hi.append(ranges[key][1])
     return BoxPrior(tuple(names), np.array(lo), np.array(hi))
 
 
@@ -208,8 +221,21 @@ class CoevTrainingSet:
             )
 
 
-def _start_networks(B, n, rng, prior, model, backend):
+def _start_networks(B, n, rng, prior, model, backend, start: str = "m2"):
+    """As ``population.sample_start_networks`` (both regimes), but the burn-in runs
+    under the structural effects only, drawn from the co-evolution prior."""
+    if start not in ("m2", "sparse"):
+        raise ValueError(f"unknown start regime {start!r}")
     d = rng.uniform(*ER_DENSITY, size=B)
+    cap = np.full(B, -1)
+    if start == "sparse":
+        sparse = rng.random(B) < 0.5
+        k = rng.uniform(*MEAN_DEGREE, size=B)
+        d = np.where(sparse, k / (n - 1), d)
+        capped = sparse & (rng.random(B) < 0.5)
+        cap = np.where(
+            capped, np.ceil(k) + rng.integers(CAP_EXCESS[0], CAP_EXCESS[1] + 1, size=B), -1
+        )
     X = (rng.random((B, n, n)) < d[:, None, None]).astype(OUT_DTYPE)
     zero_diagonal(X)
     burn = rng.random(B) < 0.5
@@ -217,7 +243,11 @@ def _start_networks(B, n, rng, prior, model, backend):
     theta0 = prior.sample(B, rng)
     idx = [prior.names.index(e) for e in NET_EFFECTS]
     steps = np.where(burn, BURNIN_STEPS_PER_ACTOR * n, 0)
-    return simulate_period(X, theta0[:, idx], model=model, rng=rng, n_steps=steps, backend=backend)
+    X0 = simulate_period(X, theta0[:, idx], model=model, rng=rng, n_steps=steps, backend=backend)
+    if (cap > 0).any():
+        X0 = np.ascontiguousarray(X0)
+        cap_outdegree(X0, cap, rng)
+    return X0
 
 
 def generate_coev(
@@ -231,9 +261,12 @@ def generate_coev(
     backend="numpy",
     keep_networks: bool = True,
     progress: bool = False,
+    start: str = "m2",
 ) -> CoevTrainingSet:
     if list(prior.names) != coev_theta_names(waves):
         raise ValueError("prior names must match coev_theta_names(waves)")
+    if keep_networks and n_range[1] > N_MAX:
+        raise ValueError(f"n_range exceeds N_MAX={N_MAX}; pass keep_networks=False for larger n")
     R = waves - 1
     model, bmodel = net_model(), beh_model()
     names = coev_summary_names(waves)
@@ -244,7 +277,7 @@ def generate_coev(
         B = min(chunk, N - c * chunk)
         n = int(rng.integers(n_lo, n_hi + 1))
         z_max = int(rng.choice(Z_MAX_CHOICES))
-        X0 = _start_networks(B, n, rng, prior, model, backend)
+        X0 = _start_networks(B, n, rng, prior, model, backend, start=start)
         z0 = random_behaviour(B, n, 1, z_max, rng)
         # constants from the start behaviour, per chain
         zbar = z0.mean(axis=1)
@@ -306,6 +339,7 @@ def generate_coev(
             "z_max_choices": list(Z_MAX_CHOICES),
             "prior_low": prior.low.tolist(),
             "prior_high": prior.high.tolist(),
+            "start_regime": start,
             "constants": "zbar, sim_mean from the start behaviour; passed as summaries",
         },
     )

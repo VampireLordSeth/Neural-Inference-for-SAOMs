@@ -70,6 +70,23 @@ def test_generate_coev_reproducible():
     assert np.array_equal(a.theta, b.theta) and np.array_equal(a.summary, b.summary)
 
 
+def test_generate_coev_sparse_regime_and_wide_rates():
+    """start="sparse" at n > N_MAX (summary-only) gives sparser starts than the m2
+    regime and records the regime; rate_net can be widened and lands in the meta."""
+    prior = coev_prior(3, rate_net=(1.0, 20.0))
+    assert prior.high[0] == 20.0 and prior.high[1] == 20.0 and prior.low[2] == 0.3
+    names = coev_summary_names(3)
+    k = names.index("x0_tie_fraction")
+    kw = dict(waves=3, n_range=(120, 120), chunk=64, keep_networks=False)
+    sparse = generate_coev(prior, 128, np.random.default_rng(5), start="sparse", **kw)
+    dense = generate_coev(prior, 128, np.random.default_rng(5), start="m2", **kw)
+    assert sparse.meta["start_regime"] == "sparse" and dense.meta["start_regime"] == "m2"
+    assert sparse.meta["prior_high"][0] == 20.0
+    assert np.median(sparse.summary[:, k]) < 0.75 * np.median(dense.summary[:, k])
+    with pytest.raises(ValueError):
+        generate_coev(prior, 8, np.random.default_rng(0), waves=3, n_range=(120, 120), chunk=8)
+
+
 def test_real_coev_summary_uses_rsiena_constants():
     Xs = [np.loadtxt(f"benchmarks/s50{w}.csv", delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
     Z = np.loadtxt("benchmarks/s50a.csv", delimiter=",")

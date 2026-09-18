@@ -3,10 +3,12 @@
     python benchmarks/npe_coev.py generate --N 1000000 --waves 3 --out data/train_coev3.npz
     python benchmarks/npe_coev.py train --data data/train_coev3.npz --out data/npe_coev3
     python benchmarks/npe_coev.py sbc --posterior data/npe_coev3.pt --waves 3 --N 4000
-    python benchmarks/npe_coev.py s50 --posterior data/npe_coev3.pt
+    python benchmarks/npe_coev.py s50 --posterior data/npe_coev3.pt [--real glasgow]
 
 `s50` applies the estimator to s501 -> s502 -> s503 with alcohol, using
-RSiena's all-wave constants, and compares with benchmarks/rsiena_coevolution_estimate.json.
+RSiena's all-wave constants, and compares with benchmarks/rsiena_coevolution_estimate.json;
+`--real glasgow` does the same for the 129-pupil Glasgow panel (benchmarks/glasgow/).
+`generate` and `sbc` take --n-max, --rate-net-max and --start sparse (M4, docs/PRIORS_M4.md).
 """
 
 import argparse
@@ -19,7 +21,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from benchmarks.coverage import coverage_table  # noqa: E402
+from benchmarks.coverage import coverage_table, sbc_ranks_chunked  # noqa: E402
 from saomsim.population_coev import (  # noqa: E402
     CoevTrainingSet,
     coev_prior,
@@ -29,21 +31,35 @@ from saomsim.population_coev import (  # noqa: E402
     transform_coev,
 )
 
-RS_NAMES = {
-    "rate_net_1": "net:rate_1",
-    "rate_net_2": "net:rate_2",
-    "rate_beh_1": "alc:rate_1",
-    "rate_beh_2": "alc:rate_2",
-    "density": "net:density",
-    "recip": "net:recip",
-    "transTrip": "net:transTrip",
-    "cycle3": "net:cycle3",
-    "egoZ": "net:egoX",
-    "altZ": "net:altX",
-    "simZ": "net:simX",
-    "linear": "alc:linear",
-    "quad": "alc:quad",
-    "avAlt": "alc:avAlt",
+
+def rs_names(beh: str = "alc") -> dict:
+    """Our parameter names -> RSiena labels as the R scripts write them (behaviour ``beh``)."""
+    return {
+        "rate_net_1": "net:rate_1",
+        "rate_net_2": "net:rate_2",
+        "rate_beh_1": f"{beh}:rate_1",
+        "rate_beh_2": f"{beh}:rate_2",
+        "density": "net:density",
+        "recip": "net:recip",
+        "transTrip": "net:transTrip",
+        "cycle3": "net:cycle3",
+        "egoZ": "net:egoX",
+        "altZ": "net:altX",
+        "simZ": "net:simX",
+        "linear": f"{beh}:linear",
+        "quad": f"{beh}:quad",
+        "avAlt": f"{beh}:avAlt",
+    }
+
+
+REAL = {  # name -> (network csv pattern, behaviour csv, RSiena json, RSiena behaviour label)
+    "s50": ("s50{w}.csv", "s50a.csv", "rsiena_coevolution_estimate.json", "alc"),
+    "glasgow": (
+        "glasgow/glasgow_net{w}.csv",
+        "glasgow/glasgow_alcohol.csv",
+        "glasgow/rsiena_coevolution.json",
+        "alcB",
+    ),
 }
 
 
@@ -56,8 +72,10 @@ def torch_backend(dtype="float32"):
 
 
 def cmd_generate(a):
-    prior = coev_prior(a.waves)
-    print(f"N={a.N} waves={a.waves}\nprior:\n{prior.table()}", flush=True)
+    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max))
+    print(
+        f"N={a.N} waves={a.waves} n<={a.n_max} start={a.start}\nprior:\n{prior.table()}", flush=True
+    )
     rng = np.random.default_rng(a.seed)
     t0 = time.perf_counter()
     ts = generate_coev(
@@ -65,10 +83,12 @@ def cmd_generate(a):
         a.N,
         rng,
         waves=a.waves,
+        n_range=(20, a.n_max),
         chunk=a.chunk,
         backend=torch_backend(),
         keep_networks=not a.no_networks,
         progress=True,
+        start=a.start,
     )
     dt = time.perf_counter() - t0
     print(f"simulated {a.N} panels in {dt:.1f}s ({a.N / dt:,.0f} panels/s)")
@@ -103,8 +123,11 @@ def cmd_train(a):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ts = load_summaries(a.data)
     waves = int(ts.meta["waves"])
-    prior_box = coev_prior(waves)
+    prior_box = coev_prior(waves, rate_net=(ts.meta["prior_low"][0], ts.meta["prior_high"][0]))
     assert list(prior_box.names) == ts.theta_names
+    assert np.allclose(prior_box.low, ts.meta["prior_low"]) and np.allclose(
+        prior_box.high, ts.meta["prior_high"]
+    ), "training set was generated with a different prior box"
     X = transform_coev(ts.summary, ts.summary_names, net_model())
     N = X.shape[0]
     print(f"N={N} waves={waves} summaries={X.shape[1]} device={device}", flush=True)
@@ -145,23 +168,38 @@ def cmd_train(a):
 def cmd_sbc(a):
     import torch
     from sbi.analysis import sbc_rank_plot
-    from sbi.diagnostics import check_sbc, run_sbc
+    from sbi.diagnostics import check_sbc
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    prior = coev_prior(a.waves)
+    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max))
     rng = np.random.default_rng(a.seed)
     t0 = time.perf_counter()
     ts = generate_coev(
-        prior, a.N, rng, waves=a.waves, chunk=a.chunk, backend=torch_backend(), keep_networks=False
+        prior,
+        a.N,
+        rng,
+        waves=a.waves,
+        n_range=(20, a.n_max),
+        chunk=a.chunk,
+        backend=torch_backend(),
+        keep_networks=False,
+        start=a.start,
     )
     gen_s = time.perf_counter() - t0
-    print(f"fresh test set: {a.N} panels, n in [{ts.n.min()}, {ts.n.max()}], {gen_s:.0f}s")
+    print(
+        f"fresh test set: {a.N} panels, n in [{ts.n.min()}, {ts.n.max()}], {gen_s:.0f}s", flush=True
+    )
     X = transform_coev(ts.summary, ts.summary_names, net_model())
     posterior = torch.load(a.posterior, weights_only=False)
     thetas = torch.as_tensor(ts.theta, dtype=torch.float32, device=device)
     xs = torch.as_tensor(X, dtype=torch.float32, device=device)
-    ranks, dap = run_sbc(
-        thetas, xs, posterior, num_posterior_samples=a.posterior_samples, show_progress_bar=False
+    ranks, dap = sbc_ranks_chunked(
+        posterior,
+        thetas,
+        xs,
+        a.posterior_samples,
+        chunk=a.chunk,
+        log=lambda m: print(m, flush=True),
     )
     checks = check_sbc(ranks, thetas, dap, num_posterior_samples=a.posterior_samples)
     r = ranks.cpu().numpy()
@@ -171,12 +209,13 @@ def cmd_sbc(a):
         print(f"{name:<12}{checks['ks_pvals'][k].item():>11.3f}{(r[:, k] / L).mean():>11.3f}")
     print("\n" + coverage_table(r.astype(float), L, ts.theta_names))
     print("\nmean rank/L by n band:")
-    for lo in range(20, 81, 15):
-        m = (ts.n >= lo) & (ts.n < lo + 15)
+    step = 15 if a.n_max <= 80 else 30
+    for lo in range(20, a.n_max + 1, step):
+        m = (ts.n >= lo) & (ts.n < lo + step)
         if m.any():
             u = r[m] / L
             print(
-                f"  n {lo:>2}..{min(lo + 14, 80):<2} (N={m.sum():>4}): "
+                f"  n {lo:>3}..{min(lo + step - 1, a.n_max):<3} (N={m.sum():>4}): "
                 + " ".join(f"{nm}={u[:, k].mean():.3f}" for k, nm in enumerate(ts.theta_names))
             )
     out = str(Path(a.posterior).with_suffix("")) + "_sbc_pop"
@@ -199,10 +238,12 @@ def cmd_s50(a):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     here = Path(__file__).parent
-    Xs = [np.loadtxt(here / f"s50{w}.csv", delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
-    Z = np.loadtxt(here / "s50a.csv", delimiter=",")
+    net_pat, beh_csv, rs_json, beh_label = REAL[a.real]
+    Xs = [np.loadtxt(here / net_pat.format(w=w), delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
+    Z = np.loadtxt(here / beh_csv, delimiter=",")
     S, spec = real_coev_summary(Xs, [Z[:, w] for w in range(3)], 1, 5)
     names = coev_prior(3).names
+    labels = rs_names(beh_label)
     from saomsim.population_coev import coev_summary_names
 
     x = torch.as_tensor(
@@ -213,15 +254,18 @@ def cmd_s50(a):
     smp = posterior.sample((20_000,), x=x, show_progress_bars=False).cpu().numpy()
     dt = time.perf_counter() - t0
     np.savez_compressed(
-        str(Path(a.posterior).with_suffix("")) + "_posterior_s50.npz",
+        str(Path(a.posterior).with_suffix("")) + f"_posterior_{a.real}.npz",
         samples=smp,
         names=np.array(names),
     )
-    rs_path = here / "rsiena_coevolution_estimate.json"
+    rs_path = here / rs_json
     rs = json.loads(rs_path.read_text(encoding="utf-8")) if rs_path.exists() else None
     q = np.quantile(smp, [0.05, 0.95], axis=0)
     consts = f"zbar={spec.zbar[0]:.3f}, simMean={spec.sim_mean[0]:.3f}"
-    print(f"co-evolution posterior for s50 (three waves, alcohol; {consts}; {dt:.2f}s)")
+    print(
+        f"co-evolution posterior for {a.real}, n={Xs[0].shape[0]} "
+        f"(three waves, alcohol; {consts}; {dt:.2f}s)"
+    )
     hdr = f"{'parameter':<12}{'mean':>8}{'sd':>7}{'90%':>17}"
     if rs:
         hdr += f"{'RSiena':>8}{'se':>7}{'z':>6}{'in 90%':>8}"
@@ -230,7 +274,7 @@ def cmd_s50(a):
         m, s = smp[:, k].mean(), smp[:, k].std()
         line = f"{nm:<12}{m:>8.3f}{s:>7.3f}{f'[{q[0, k]:.2f}, {q[1, k]:.2f}]':>17}"
         if rs:
-            e, se = rs["estimate"][RS_NAMES[nm]], rs["se"][RS_NAMES[nm]]
+            e, se = rs["estimate"][labels[nm]], rs["se"][labels[nm]]
             inside = "yes" if q[0, k] <= e <= q[1, k] else "no"
             line += f"{e:>8.3f}{se:>7.3f}{(e - m) / s:>6.2f}{inside:>8}"
         print(line)
@@ -249,6 +293,9 @@ def main():
     g.add_argument("--seed", type=int, default=50)
     g.add_argument("--chunk", type=int, default=2048)
     g.add_argument("--no-networks", action="store_true")
+    g.add_argument("--n-max", type=int, default=80)
+    g.add_argument("--rate-net-max", type=float, default=12.0)
+    g.add_argument("--start", default="m2", choices=["m2", "sparse"])
     t = sub.add_parser("train")
     t.add_argument("--data", nargs="+", default=["data/train_coev3.npz"])
     t.add_argument("--out", default="data/npe_coev3")
@@ -266,8 +313,12 @@ def main():
     s.add_argument("--chunk", type=int, default=100)
     s.add_argument("--posterior-samples", type=int, default=1000)
     s.add_argument("--seed", type=int, default=3)
+    s.add_argument("--n-max", type=int, default=80)
+    s.add_argument("--rate-net-max", type=float, default=12.0)
+    s.add_argument("--start", default="m2", choices=["m2", "sparse"])
     r = sub.add_parser("s50")
     r.add_argument("--posterior", default="data/npe_coev3.pt")
+    r.add_argument("--real", default="s50", choices=list(REAL))
     a = ap.parse_args()
     {"generate": cmd_generate, "train": cmd_train, "sbc": cmd_sbc, "s50": cmd_s50}[a.cmd](a)
 
