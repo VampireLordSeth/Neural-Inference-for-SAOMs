@@ -246,7 +246,104 @@ rather than tie fraction fixed as n grows. The estimator for n ≤ 200 is now
 calibrated over a population that contains real school networks and agrees
 with RSiena on all nine parameters of the Glasgow panel in 0.06 s.
 
-Next: the co-evolution estimator on Glasgow's network × alcohol (RSiena fit
-already in `benchmarks/glasgow/rsiena_coevolution.json`; needs the sparse
-regime in `npe_coev.py generate`), then the many-classroom application
-(Knecht).
+## Co-evolution on Glasgow: network × alcohol, n = 129 (2026-09-18)
+
+The M3b estimator (14 parameters, `docs/PRIORS_M3b.md`) on the step-2
+population: n ~ U{20..200}, sparse-start regime, rate_net ~ U(1, 20). Code:
+`npe_coev.py generate/sbc --n-max 200 --rate-net-max 20 --start sparse`,
+`npe_coev.py s50 --real glasgow`. Artefacts `train_coev_m4.npz` (Spark),
+`npe_coev_m4.*`, `npe_coev_m4_sbc_pop.{npz,png}`, `npe_coev_m4_posterior_{glasgow,s50}.npz`,
+`coev_m4.log`.
+
+| | |
+|---|---|
+| training set | 10⁶ panels, seed 80, 11,685 s (86 panels/s) |
+| estimator | NSF 8 × 128, batch 1024, lr 5e-4; 176 epochs, ≈ 90 min; best validation loss 2.307 |
+| Glasgow / s50 | 0.5 s each |
+
+### Calibration (fresh 4,000 draws, n ∈ [21, 199])
+
+![M4 co-evolution SBC ranks](figures/m4_coev_sbc_ranks_population.png)
+
+**Coverage within 1.7 points of nominal on all 14** (worst: recip 90 % at
+0.883); mean ranks 0.483–0.521; no drift with n (avAlt 0.47–0.51 across the
+bands, rate_beh₂ 0.50–0.53). The 14-parameter estimator extends to n ≤ 200 as
+the network-only one did.
+
+### Glasgow (RSiena co-evolution fit: `benchmarks/glasgow/rsiena_coevolution.json`, 287 s)
+
+| parameter | RSiena est ± se | M4 mean ± sd | M4 90 % | (RS − M4)/sd |
+|---|---|---|---|---|
+| **rate_net₁** | 10.57 ± 0.90 | **8.40 ± 0.95** | [7.02, 10.03] | **2.28** |
+| **rate_net₂** | 8.58 ± 0.80 | **6.86 ± 0.57** | [5.96, 7.84] | **3.01** |
+| rate_beh₁ | 1.12 ± 0.20 | 1.23 ± 0.22 | [0.92, 1.61] | −0.52 |
+| rate_beh₂ | 1.72 ± 0.28 | 2.32 ± 0.50 | [1.68, 3.22] | −1.21 |
+| density | −2.77 ± 0.06 | −2.74 ± 0.08 | [−2.87, −2.62] | −0.38 |
+| recip | 2.42 ± 0.11 | 2.43 ± 0.14 | [2.21, 2.66] | −0.04 |
+| transTrip | 0.67 ± 0.05 | 0.55 ± 0.07 | [0.43, 0.66] | 1.69 |
+| cycle3 | −0.51 ± 0.09 | −0.29 ± 0.16 | [−0.53, −0.01] | −1.39 |
+| egoZ | 0.01 ± 0.05 | 0.04 ± 0.08 | [−0.09, 0.16] | −0.43 |
+| altZ | 0.06 ± 0.05 | −0.06 ± 0.10 | [−0.21, 0.10] | 1.27 |
+| **simZ (selection)** | **1.16 ± 0.32** | **2.03 ± 0.47** | [1.33, 2.88] | **−1.83** |
+| linear | 0.44 ± 0.14 | 0.56 ± 0.24 | [0.21, 1.00] | −0.50 |
+| quad | −0.56 ± 0.20 | −0.87 ± 0.20 | [−1.22, −0.55] | 1.50 |
+| **avAlt (influence)** | **1.35 ± 0.59** | **2.63 ± 0.76** | [1.37, 3.83] | **−1.70** |
+
+- **Nine of fourteen inside the 90 % intervals.** Density, reciprocity, the
+  behaviour rates, egoZ, altZ and linear are on RSiena. Both mechanisms are
+  recovered as present, as RSiena finds them.
+- **The network rates read low again** (z 2.3, 3.0) — the sparse population
+  that fixed this for the network-only estimator did not fix it here. The s50
+  fit from the same model (below) shows the 10⁶-budget rate under-read that
+  the M3b 10⁶ model had and the 10⁷ model removed, so part of this is budget:
+  the co-evolution population is far wider than the network one (n to 200,
+  two start regimes, three behaviour scales, rates to 20) on the same 10⁶
+  panels.
+- **Selection and influence both read high** (simZ 2.03 vs 1.16, avAlt 2.63 vs
+  1.35, 1.7–1.8 sd), the direction the influence/quad pair took on s50 in
+  every fit (`docs/M3_RESULTS.md`).
+
+### Where Glasgow and s50 sit in the co-evolution population
+
+The screen of §"Where Glasgow sits" above, on the 62 co-evolution summaries
+against same-size training panels with z_max = 5 (57,344 for Glasgow, 77,824
+for s50; `/tmp/coev_screen.py` on the Spark):
+
+| summary | s50 obs | pctile | Glasgow obs | pctile | band median |
+|---|---|---|---|---|---|
+| **x0_simZ** (friends' alcohol similarity, wave 1) | 10.0 | **0.982** | 28.2 | **0.989** | 0.01 / 0.04 |
+| x0_egoZ (drinkers' out-ties, wave 1) | −17.8 | 0.091 | −129.3 | **0.003** | 0 |
+| sim_mean (RSiena constant) | 0.674 | **0.013** | 0.726 | 0.179 | 0.76 |
+| x1_simZ | 13.5 | 0.879 | 36.9 | 0.855 | 1.3 / 5.4 |
+| x0_tie_fraction | 0.046 | 0.200 | 0.027 | 0.176 | 0.12 / 0.07 |
+
+Density is now inside the population for both (step 2 did its job), and the
+behaviour-shape summaries are central. What is at the edge is **the alignment
+of network and behaviour at the start**: real friendship networks are already
+homophilous on drinking at wave 1 — friends drink alike, the product of
+selection and influence before the panel began — and the population's start
+networks are not. `_start_networks` draws X0 by ER or a burn-in under the
+structural effects only, and z0 independently, so x0_simZ is ≈ 0 for every
+training panel; s50 and Glasgow sit at its 98th–99th percentile. The
+estimator reads the later-wave alignment against a start that has none and
+must attribute all of it to selection and influence acting within the
+periods, where in the real data much of it was there at the start. That is
+the same failure as the density one in step 1, on the behaviour axis, and it
+is the likeliest reason every real-data co-evolution fit here has put
+selection and influence above RSiena.
+
+The step-3 population, by the same recipe as step 2: burn the start network
+in **under the selection effects as well** — `simulate_coevolution` from the ER
+seed with θ₀ ~ prior on the structural and selection effects and rate_beh = 0,
+so z0 is fixed and X0 acquires the homophily the prior implies — which puts
+x0_simZ across a realistic range at no cost to anything else. One regime
+flag, a regeneration (3 h) and a retrain (1.5 h).
+
+### s50 from the same model (for comparison with `docs/M3_RESULTS.md`)
+
+All 14 RSiena estimates inside the 90 % intervals; max |z| 1.62 (rate_net₁,
+the 10⁶ under-read); avAlt 2.53 ± 0.84 (z −1.43), quad −0.85 ± 0.27 (z 0.92),
+simZ 1.85 ± 0.70 (z −0.62). The wider population costs s50 nothing in
+coverage and a little in width (sd 0.84 vs 0.81 on avAlt).
+
+Next: step 3 (homophilous starts), then Knecht.

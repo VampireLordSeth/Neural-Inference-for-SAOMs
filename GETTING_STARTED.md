@@ -352,9 +352,14 @@ bandwidth is modest, so treat it as a throughput box.
     `population.py`): half the starts draw mean degree k~U(2,10), half of those
     out-degree-capped; regenerated and retrained, coverage nominal within 3 pts,
     rate tilt gone; Glasgow all nine inside the 90% intervals, max |z| 1.72
-    (rates 0.9 and 1.5 sd). Next: co-evolution on Glasgow (sparse regime in
-    `npe_coev.py generate`); Knecht classrooms. Sparse simulator for n > 500
-    remains.
+    (rates 0.9 and 1.5 sd). Co-evolution on Glasgow 2026-09-18 (same
+    population, 14 parameters): calibrated within 1.7 pts at n ≤ 200; Glasgow
+    9 of 14 inside, network rates 2.3–3.0 sd low, selection and influence
+    1.7–1.8 sd high. Screen: real starts are homophilous on drinking
+    (x0_simZ at the 98th–99th percentile of the population, whose starts are
+    generated independently of behaviour). Next: step 3, starts burnt in
+    under the selection effects; then Knecht classrooms. Sparse simulator for
+    n > 500 remains.
 
 ## 8. Conventions worth keeping
 
