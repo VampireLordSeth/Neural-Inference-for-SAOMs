@@ -133,6 +133,27 @@ S = statistics(X1, model)                                                  # (10
 
 Add `backend="torch"` to run on a GPU.
 
+### Fit your own panel
+
+With a trained estimator in `data/` (copied from the machine that trained it;
+the two current ones are `npe_m4b.pt` for a network with two covariates and
+`npe_coev_m4b.pt` for a network with a co-evolving behaviour) and the torch
+environment:
+
+```bash
+python benchmarks/fit.py --waves w1.csv w2.csv w3.csv --v v.csv --g g.csv          # network + covariates
+python benchmarks/fit.py --waves w1.csv w2.csv w3.csv --behaviour z.csv           # network x behaviour
+python benchmarks/fit.py ... --rsiena myfit.json --out results/mydata             # compare, and save
+```
+
+Each wave is an n × n 0/1 adjacency matrix as a headerless CSV; `v` is one
+number per actor, `g` one category per actor, `z` an n × 3 matrix of integer
+scores on a 1–5 scale. Three waves, 20–200 actors, the fixed effect sets of
+`docs/M4_RESULTS.md`. The script first places the dataset in the training
+population and flags any summary outside the 2nd–98th percentile — the check
+that tells you whether the posterior can be trusted — then samples it in
+about half a second. `python benchmarks/fit.py --help` has the details.
+
 ## Conventions worth knowing
 
 - **Reference implementations are sacred.** Every vectorized kernel is
