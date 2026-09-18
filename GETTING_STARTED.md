@@ -341,8 +341,11 @@ bandwidth is modest, so treat it as a throughput box.
     regenerated and the 10⁷ run redone 2026-09-17: validation loss 4.14 vs
     5.16 at 10⁶, coverage within 1.6 pts on all 14, all 14 s50 parameters in
     the 90% intervals, selection on RSiena (z 0.5); influence/quad pair stays
-    1.5–1.7 sd off at both budgets (a stable difference, not a budget effect —
-    next check is an RSiena maximum-likelihood fit).
+    1.5–1.7 sd off at both budgets. RSiena ML fit (2026-09-18, 6.4 h,
+    `rsiena_coevolution_maxlike.R`): avAlt 0.33 ± 0.26, quad −0.29 ± 0.11 —
+    the far side of MoM from us; PPC (`ppc_coev.py`): none of the three points
+    is outside the 95% predictive on any behaviour statistic — s50 cannot
+    resolve the pair. Suspect our side (start homophily, see M4).
 11. M4 step 1 done 2026-09-16 (`docs/M4_RESULTS.md`): M3a estimator widened to
     n ≤ 200, rate ≤ 20; 10⁶ panels (3.7 h generation, 75 panels/s), coverage
     nominal within 3.5 pts at every n. Glasgow (n=129, 3 waves): five of nine

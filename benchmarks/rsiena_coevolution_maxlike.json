@@ -1,0 +1,46 @@
+{
+  "rsiena_version": "1.6.6",
+  "waves": 3,
+  "method": "maxlike",
+  "cond": false,
+  "n3": 5000,
+  "mult": 10,
+  "init": "C:/Users/IG-88/AppData/Local/Temp/claude/c--Users-IG-88-Desktop-Code-Network-Inference/f318eed6-8491-4c02-8a0d-db6d4a4a61f6/scratchpad/maxlike_run1.json",
+  "runs": 4,
+  "seconds": 22976.8522138596,
+  "tconv_max": [
+    [0.32665549989059]
+  ],
+  "estimate": {
+    "net:rate_1": 6.34527245693177,
+    "net:rate_2": 5.14906260419246,
+    "net:density": -2.75099975916567,
+    "net:recip": 2.3464947917352,
+    "net:transTrip": 0.812772201264157,
+    "net:cycle3": -0.269365674421357,
+    "net:altX": -0.0406153846773802,
+    "net:egoX": 0.03661498224732,
+    "net:simX": 0.853538434384438,
+    "alc:rate_1": 1.23929658559948,
+    "alc:rate_2": 1.8470712568107,
+    "alc:linear": 0.298007738834713,
+    "alc:quad": -0.289455751543722,
+    "alc:avAlt": 0.327320026207295
+  },
+  "se": {
+    "net:rate_1": 0.902688747288755,
+    "net:rate_2": 0.86843621091705,
+    "net:density": 0.128110319733893,
+    "net:recip": 0.228450369051887,
+    "net:transTrip": 0.116581714383525,
+    "net:cycle3": 0.237042738830973,
+    "net:altX": 0.0740910119549431,
+    "net:egoX": 0.0743529580018653,
+    "net:simX": 0.397907080395292,
+    "alc:rate_1": 0.313651358240071,
+    "alc:rate_2": 0.588003645003408,
+    "alc:linear": 0.139100728568671,
+    "alc:quad": 0.106834459947808,
+    "alc:avAlt": 0.257596847663383
+  }
+}

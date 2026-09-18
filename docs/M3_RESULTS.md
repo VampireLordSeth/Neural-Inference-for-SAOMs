@@ -389,7 +389,7 @@ s50, three waves, network × alcohol:
   ±2 s.e. Both estimators say influence is present; they disagree mildly on
   how much of the pull toward the mean is influence versus curvature. A
   likelihood-based RSiena fit (`siena07` with `maxlike = TRUE`) would say
-  which point the data actually prefer; that is the next check for this pair.
+  which point the data actually prefer; see the next section.
 - Selection × influence posterior correlation −0.08 (−0.14 at 10⁶): the two
   mechanisms are separately identified, and more so with more data.
 - Cost: 0.5 s per 14-parameter posterior.
@@ -399,3 +399,69 @@ calibrated on all 14 parameters within 1.6 points, agrees with RSiena on
 selection and on every rate and structural effect, and differs from it only
 on the weakly identified influence/quad direction, by less than 2 sd. M3b is
 complete at both budgets.
+
+## The influence/quad pair: RSiena by maximum likelihood, and a posterior predictive check (2026-09-18)
+
+Two checks on the one parameter pair where the amortized posterior and
+RSiena's method of moments differ by 1.5–1.7 sd at both training budgets.
+
+**RSiena maximum likelihood** (`benchmarks/rsiena_coevolution_maxlike.R`,
+same model, MCMC-based; started from the MoM estimate, then restarted with
+longer chains from its own first pass: 5,000 phase-3 iterations, `mult = 10`,
+four runs, 6.4 h on 16 cores single-threaded). Per-parameter t-ratios all
+< 0.18; the overall convergence ratio is 0.33 against RSiena's 0.25 guideline,
+and the estimates moved by < 0.1 sd between the two passes, so the point is
+stable if not certified. `benchmarks/rsiena_coevolution_maxlike.json`.
+
+| parameter | MoM (RSiena) | **ML (RSiena)** | amortized 10⁷ | amortized 90 % |
+|---|---|---|---|---|
+| rate_net₁ | 6.53 ± 1.07 | 6.35 ± 0.90 | 5.96 ± 1.13 | [4.39, 7.97] |
+| density | −2.76 ± 0.15 | −2.75 ± 0.13 | −2.69 ± 0.17 | [−2.99, −2.44] |
+| recip | 2.39 ± 0.22 | 2.35 ± 0.23 | 2.60 ± 0.26 | [2.18, 3.04] |
+| transTrip | 0.66 ± 0.15 | 0.81 ± 0.12 | 0.56 ± 0.16 | [0.31, 0.82] |
+| **simZ (selection)** | 1.42 ± 0.64 | **0.85 ± 0.40** | 1.08 ± 0.64 | [0.13, 2.24] |
+| linear | 0.42 ± 0.24 | 0.30 ± 0.14 | 0.64 ± 0.34 | [0.11, 1.24] |
+| **quad** | −0.60 ± 0.35 | **−0.29 ± 0.11** | −1.05 ± 0.29 | [−1.46, −0.52] |
+| **avAlt (influence)** | 1.33 ± 0.86 | **0.33 ± 0.26** | 2.72 ± 0.81 | [1.23, 3.85] |
+
+- On the structural parameters and selection, ML, MoM and the amortized
+  posterior agree (ML's simZ 0.85 is inside our interval, as is its transTrip
+  at the edge).
+- **On influence and curvature, ML lands on the far side of MoM from us**:
+  avAlt 0.33 ± 0.26 and quad −0.29 ± 0.11, against our 2.72 ± 0.81 and
+  −1.05 ± 0.29. Our 90 % intervals exclude the ML point on both, and ML's
+  much smaller standard errors exclude ours. The three estimators line up on
+  a ridge — ML (weak influence, flat curvature), MoM, amortized (strong
+  influence, strong curvature) — which is the weakly identified direction
+  named above.
+
+**Posterior predictive check** (`benchmarks/ppc_coev.py`, 2,000 simulations of
+the two s50 periods from the observed start under each point, with the
+parity-verified simulator; observed value, predictive mean and F(obs) — the
+predictive quantile of the observation):
+
+| statistic | obs | amortized draws | MoM | ML |
+|---|---|---|---|---|
+| avAlt target, period 1 | 31.9 | 33.6 (0.47) | 27.5 (0.70) | 17.7 (**0.96**) |
+| avAlt target, period 2 | 22.1 | 39.5 (0.23) | 26.1 (0.38) | 11.7 (**0.90**) |
+| quad target, period 1 | 70.5 | 64.5 (0.69) | 60.7 (0.85) | 57.9 (**0.93**) |
+| friend similarity, period 1 | 85.3 | 90.1 (**0.08**) | 88.4 (0.17) | 85.2 (0.50) |
+| behaviour changes, period 2 | 33 | 35.8 (0.38) | 31.4 (0.60) | 33.4 (0.43) |
+
+- **Nothing is outside the central 95 % for any of the three**, on any of the
+  seven statistics in either period. The s50 behaviour data — 50 pupils, two
+  periods, 27 and 33 behaviour changes — do not resolve the pair. The leanings
+  are consistent with the ridge: the ML point under-produces the observed
+  friend-alcohol alignment (avAlt target at F 0.90–0.96 in both periods); the
+  amortized posterior over-produces friend similarity at wave 2 (F 0.08) and
+  the period-2 avAlt target (F 0.23); MoM, which matches the targets by
+  construction, sits between.
+- What the check establishes is that the 1.5–1.7 sd disagreement is *within*
+  the resolving power of these data: none of the three points is contradicted
+  by them. Which one is closer to the truth is not decidable from s50. On the
+  Glasgow panel (`docs/M4_RESULTS.md`) the amortized posterior reads selection
+  and influence high in the same direction, and the screen there finds a
+  reason that is ours to fix — the training population's start networks carry
+  no behaviour homophily, real ones do — so the honest reading is that the
+  amortized side of the ridge is the side to be suspicious of until the
+  step-3 population has been trained and this pair re-read.
