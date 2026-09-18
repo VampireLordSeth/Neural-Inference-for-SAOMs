@@ -87,6 +87,24 @@ def test_generate_coev_sparse_regime_and_wide_rates():
         generate_coev(prior, 8, np.random.default_rng(0), waves=3, n_range=(120, 120), chunk=8)
 
 
+def test_homophilous_starts_carry_behaviour_alignment():
+    """The homophilous regime burns the start in under the selection effects with z0
+    frozen, so x0_simZ spreads out with the drawn simZ; the sparse regime's starts are
+    built independently of behaviour."""
+    prior = coev_prior(3)
+    names = coev_summary_names(3)
+    k = names.index("x0_simZ")
+    kw = dict(waves=3, n_range=(40, 40), chunk=64, keep_networks=False)
+    hom = generate_coev(prior, 256, np.random.default_rng(7), start="homophilous", **kw)
+    spa = generate_coev(prior, 256, np.random.default_rng(7), start="sparse", **kw)
+    assert hom.meta["start_regime"] == "homophilous"
+    # sparse starts scatter x0_simZ around zero by chance alone; homophilous ones spread
+    # it with the drawn selection effects (2.4x at n=40, 256 panels)
+    assert hom.summary[:, k].std() > 1.8 * spa.summary[:, k].std()
+    with pytest.raises(ValueError):
+        generate_coev(prior, 8, np.random.default_rng(0), start="nope", **kw)
+
+
 def test_real_coev_summary_uses_rsiena_constants():
     Xs = [np.loadtxt(f"benchmarks/s50{w}.csv", delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
     Z = np.loadtxt("benchmarks/s50a.csv", delimiter=",")

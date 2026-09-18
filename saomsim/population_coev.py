@@ -221,14 +221,25 @@ class CoevTrainingSet:
             )
 
 
-def _start_networks(B, n, rng, prior, model, backend, start: str = "m2"):
-    """As ``population.sample_start_networks`` (both regimes), but the burn-in runs
-    under the structural effects only, drawn from the co-evolution prior."""
-    if start not in ("m2", "sparse"):
+START_REGIMES = ("m2", "sparse", "homophilous")
+
+
+def _start_networks(
+    B, n, rng, prior, model, backend, start: str = "m2", *, z0=None, spec=None, bmodel=None
+):
+    """As ``population.sample_start_networks`` (regimes "m2" and "sparse"), but the burn-in
+    runs under the structural effects only, drawn from the co-evolution prior.
+
+    ``start="homophilous"`` (docs/PRIORS_M4.md, step 3): the sparse density mixture, and
+    the burnt-in half evolves under the structural *and selection* effects with the
+    behaviour ``z0`` frozen (rate_beh = 0), so start networks carry the alcohol homophily
+    real friendship networks have at wave 1 — which the other regimes lack entirely.
+    """
+    if start not in START_REGIMES:
         raise ValueError(f"unknown start regime {start!r}")
     d = rng.uniform(*ER_DENSITY, size=B)
     cap = np.full(B, -1)
-    if start == "sparse":
+    if start in ("sparse", "homophilous"):
         sparse = rng.random(B) < 0.5
         k = rng.uniform(*MEAN_DEGREE, size=B)
         d = np.where(sparse, k / (n - 1), d)
@@ -239,11 +250,33 @@ def _start_networks(B, n, rng, prior, model, backend, start: str = "m2"):
     X = (rng.random((B, n, n)) < d[:, None, None]).astype(OUT_DTYPE)
     zero_diagonal(X)
     burn = rng.random(B) < 0.5
-    # burn in under the structural effects only, at an independent draw
+    # burn in at an independent draw of the effects; rates play no part
     theta0 = prior.sample(B, rng)
     idx = [prior.names.index(e) for e in NET_EFFECTS]
-    steps = np.where(burn, BURNIN_STEPS_PER_ACTOR * n, 0)
-    X0 = simulate_period(X, theta0[:, idx], model=model, rng=rng, n_steps=steps, backend=backend)
+    if start == "homophilous":
+        if z0 is None or spec is None or bmodel is None:
+            raise ValueError("homophilous starts need z0, spec and bmodel")
+        idx_sel = [prior.names.index(e) for e in SEL_EFFECTS]
+        rate = np.where(burn, float(BURNIN_STEPS_PER_ACTOR), 0.0)
+        X0, _ = simulate_coevolution(
+            X,
+            z0,
+            theta0[:, idx],
+            theta0[:, idx_sel],
+            np.zeros((B, bmodel.K)),
+            rate,
+            np.zeros(B),
+            model,
+            bmodel,
+            spec,
+            rng,
+            backend=backend,
+        )
+    else:
+        steps = np.where(burn, BURNIN_STEPS_PER_ACTOR * n, 0)
+        X0 = simulate_period(
+            X, theta0[:, idx], model=model, rng=rng, n_steps=steps, backend=backend
+        )
     if (cap > 0).any():
         X0 = np.ascontiguousarray(X0)
         cap_outdegree(X0, cap, rng)
@@ -277,7 +310,6 @@ def generate_coev(
         B = min(chunk, N - c * chunk)
         n = int(rng.integers(n_lo, n_hi + 1))
         z_max = int(rng.choice(Z_MAX_CHOICES))
-        X0 = _start_networks(B, n, rng, prior, model, backend, start=start)
         z0 = random_behaviour(B, n, 1, z_max, rng)
         # constants from the start behaviour, per chain
         zbar = z0.mean(axis=1)
@@ -286,6 +318,9 @@ def generate_coev(
         off = ~np.eye(n, dtype=bool)
         sim_mean = S0[:, off].mean(axis=1)
         spec = BehaviourSpec(1, z_max, zbar, sim_mean)
+        X0 = _start_networks(
+            B, n, rng, prior, model, backend, start=start, z0=z0, spec=spec, bmodel=bmodel
+        )
         theta = prior.sample(B, rng)
         rn, rb = theta[:, :R], theta[:, R : 2 * R]
         eff = theta[:, 2 * R :]
