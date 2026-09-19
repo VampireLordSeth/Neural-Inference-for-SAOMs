@@ -401,11 +401,16 @@ of this size in every previous model.
   → −1.4), mainly by widening — the posterior now admits that start homophily
   and within-period selection trade off.
 - **Closure got worse**: transTrip 0.53 (z 2.2) and cycle3 −0.19 (z −2.6),
-  both read toward zero. The population tilts above (cycle3 rank 0.522) are
-  the same sign but a tenth the size, so this is Glasgow-specific: with
-  homophilous starts the estimator has a second explanation for the closed
-  triads it sees at wave 1 and attributes fewer of them to transitivity.
-  RSiena, conditioning on the observed start, does not face that ambiguity.
+  both read toward zero. Not a trade-off with selection: in the joint
+  posterior closure and simZ are uncorrelated (|r| ≤ 0.1 in both steps), and
+  conditioning simZ on RSiena's value moves transTrip and cycle3 by < 0.03.
+  The network-only estimator reads closure on RSiena from the same network
+  block (step 2), so the co-evolution estimator's read is its own — the
+  wider population at the same 10⁶ budget, on which the SBC already shows a
+  cycle3 tilt. What the joint posterior does show is a **strong
+  selection–density coupling** (r = −0.75; −0.61 in step 2): on Glasgow the
+  estimator cannot fully separate "many same-drinking ties" from "many ties",
+  which is also where its density read (−2.68 vs −2.77) comes from.
 
 ### s50 from the same model: the influence/quad pair does not move
 
@@ -431,14 +436,11 @@ made closure worse. Two things remain open and are separable:
    A 10⁷ set on this population is the principled fix — ten shards at 3.4 h
    each plus ~18 h of training, two days of Spark — and the pattern that 10⁷
    removes the 10⁶ tilts has held three times.
-2. **Closure on Glasgow.** A network-only fit on the same panel reads
-   transTrip and cycle3 on RSiena (step 2 above), so the co-evolution
-   estimator's closure reads are a summary-set question: the co-evolution
-   summaries carry the same network block, but the flow must now share it
-   with the selection block. Worth a look at the joint posterior of
-   (transTrip, cycle3, simZ) on Glasgow before spending the two days.
+2. **Closure on Glasgow.** Checked: not a selection trade-off (above). A
+   network-only fit on the same panel reads closure on RSiena, so this is
+   the co-evolution estimator under-trained on a wider population — the same
+   item as 1.
 
 `fit.py` uses the step-3 model by default.
 
-Next: the closure look (hours), then the 10⁷ co-evolution set on this
-population (days), then Knecht.
+Next: the 10⁷ co-evolution set on this population (days), then Knecht.

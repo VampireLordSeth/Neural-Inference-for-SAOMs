@@ -366,9 +366,10 @@ bandwidth is modest, so treat it as a throughput box.
     −2.6); SBC shows 0.1-sd tilts (simZ 0.544) — the wider population wants
     10⁷. s50 influence/quad unchanged across four populations: not a
     population effect. `benchmarks/fit.py` fits any three-wave panel from CSVs
-    with the in-distribution screen. Next: joint (transTrip, cycle3, simZ)
-    posterior on Glasgow; 10⁷ co-evolution on the step-3 population (~2 days);
-    Knecht. Sparse simulator for n > 500 remains.
+    with the in-distribution screen. Closure is not traded against selection
+    in the Glasgow posterior (|r| ≤ 0.1); selection–density r = −0.75. Next:
+    10⁷ co-evolution on the step-3 population (~2 days); Knecht. Sparse
+    simulator for n > 500 remains.
 
 ## 8. Conventions worth keeping
 
