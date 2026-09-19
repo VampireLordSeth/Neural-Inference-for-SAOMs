@@ -346,4 +346,99 @@ the 10⁶ under-read); avAlt 2.53 ± 0.84 (z −1.43), quad −0.85 ± 0.27 (z 0
 simZ 1.85 ± 0.70 (z −0.62). The wider population costs s50 nothing in
 coverage and a little in width (sd 0.84 vs 0.81 on avAlt).
 
-Next: step 3 (homophilous starts), then Knecht.
+## Step 3: starts with behaviour homophily (2026-09-18)
+
+`start="homophilous"` (`population_coev._start_networks`): the sparse density
+mixture of step 2, and the burnt-in half of the starts evolves under the
+structural *and selection* effects with the behaviour frozen
+(`simulate_coevolution`, θ₀ ~ prior on both, rate_beh = 0). Glasgow's x0_simZ
+moves from the 99th percentile of the population to about the 75th; on the
+new screening reference every one of its 62 summaries is inside the 2nd–98th
+(`fit.py`). Artefacts `train_coev_m4b.npz` (Spark), `npe_coev_m4b.*`,
+`npe_coev_m4b_posterior_{glasgow,s50}.npz`, `coev_m4b.log`,
+`models/screen_coev_m4b.npz`.
+
+| | |
+|---|---|
+| training set | 10⁶ panels, seed 81, 12,232 s (82 panels/s) |
+| estimator | NSF 8 × 128, batch 1024, lr 5e-4; 233 epochs, ≈ 2 h; best validation loss 2.525 (step 2: 2.307 — a harder population) |
+
+### Calibration (fresh 4,000 draws, n ∈ [30, 197])
+
+![M4 step 3 co-evolution SBC ranks](figures/m4b_coev_sbc_ranks_population.png)
+
+Coverage within 3 points of nominal on all 14 (90 %: 0.879–0.898), but the
+population is visibly harder at this budget: KS rejects eleven of fourteen,
+and **simZ reads low by ≈ 0.1 sd throughout** (mean rank 0.544; 0.52–0.56 in
+every n band), with cycle3 (0.522), quad (0.519), avAlt (0.474) and recip
+(0.471) tilted the other way. Separating within-period selection from the
+homophily the start already carries is exactly the harder task this population
+poses, and 10⁶ panels do not fully learn it. The 10⁶ → 10⁷ step removed tilts
+of this size in every previous model.
+
+### Glasgow, step 2 → step 3
+
+| parameter | RSiena est ± se | step 2 | z₂ | **step 3** | **z₃** |
+|---|---|---|---|---|---|
+| rate_net₁ | 10.57 ± 0.90 | 8.40 ± 0.95 | 2.28 | **9.12 ± 1.14** | **1.27** |
+| rate_net₂ | 8.58 ± 0.80 | 6.86 ± 0.57 | 3.01 | **7.22 ± 0.72** | **1.90** |
+| rate_beh₁ | 1.12 ± 0.20 | 1.23 ± 0.22 | −0.52 | 1.44 ± 0.32 | −1.00 |
+| rate_beh₂ | 1.72 ± 0.28 | 2.32 ± 0.50 | −1.21 | 2.68 ± 0.74 | −1.29 |
+| density | −2.77 ± 0.06 | −2.74 ± 0.08 | −0.38 | −2.68 ± 0.10 | −0.89 |
+| recip | 2.42 ± 0.11 | 2.43 ± 0.14 | −0.04 | 2.31 ± 0.11 | 0.99 |
+| transTrip | 0.67 ± 0.05 | 0.55 ± 0.07 | 1.69 | 0.53 ± 0.07 | 2.16 |
+| cycle3 | −0.51 ± 0.09 | −0.29 ± 0.16 | −1.39 | −0.19 ± 0.12 | −2.58 |
+| egoZ | 0.01 ± 0.05 | 0.04 ± 0.08 | −0.43 | 0.06 ± 0.09 | −0.63 |
+| altZ | 0.06 ± 0.05 | −0.06 ± 0.10 | 1.27 | −0.08 ± 0.09 | 1.49 |
+| **simZ (selection)** | 1.16 ± 0.32 | 2.03 ± 0.47 | −1.83 | **2.05 ± 0.70** | **−1.27** |
+| linear | 0.44 ± 0.14 | 0.56 ± 0.24 | −0.50 | 0.40 ± 0.20 | 0.22 |
+| quad | −0.56 ± 0.20 | −0.87 ± 0.20 | 1.50 | −0.96 ± 0.26 | 1.55 |
+| **avAlt (influence)** | 1.35 ± 0.59 | 2.63 ± 0.76 | −1.70 | **2.45 ± 0.79** | **−1.40** |
+
+- **Eleven of fourteen inside the 90 % intervals** (nine before). The two
+  predicted moves happened: the network rates came up (z 2.3 → 1.3, 3.0 →
+  1.9) and selection and influence moved toward RSiena (z −1.8 → −1.3, −1.7
+  → −1.4), mainly by widening — the posterior now admits that start homophily
+  and within-period selection trade off.
+- **Closure got worse**: transTrip 0.53 (z 2.2) and cycle3 −0.19 (z −2.6),
+  both read toward zero. The population tilts above (cycle3 rank 0.522) are
+  the same sign but a tenth the size, so this is Glasgow-specific: with
+  homophilous starts the estimator has a second explanation for the closed
+  triads it sees at wave 1 and attributes fewer of them to transitivity.
+  RSiena, conditioning on the observed start, does not face that ambiguity.
+
+### s50 from the same model: the influence/quad pair does not move
+
+All 14 inside the 90 % intervals, max |z| 1.56 (transTrip). **avAlt 2.48 ±
+0.92 (z −1.26), quad −1.02 ± 0.31 (z 1.37)** — against 2.70 / −1.00 at 10⁶,
+2.72 / −1.05 at 10⁷, 2.53 / −0.85 at step 2. Four populations, three
+budgets, the same pair to within 0.3 sd. The start-homophily hypothesis for
+*that* offset is therefore falsified: on s50 it is a property of the
+summaries-plus-flow reading of these 50 actors, not of where s50 sits in the
+population. The PPC (`docs/M3_RESULTS.md`) says the data cannot separate it
+from MoM or ML, so it stands as a documented, stable, sub-2-sd difference in
+a direction the data do not identify well.
+
+### What step 3 settles, and what it does not
+
+Start homophily was real and its removal helped the rates and the
+selection/influence reads on Glasgow, but it was not the whole story, and it
+made closure worse. Two things remain open and are separable:
+
+1. **Budget.** The co-evolution population is now very wide (n to 200, two
+   density regimes, homophilous starts, three behaviour scales, rates to 20)
+   on the same 10⁶ panels, and the SBC shows 0.1-sd tilts on six parameters.
+   A 10⁷ set on this population is the principled fix — ten shards at 3.4 h
+   each plus ~18 h of training, two days of Spark — and the pattern that 10⁷
+   removes the 10⁶ tilts has held three times.
+2. **Closure on Glasgow.** A network-only fit on the same panel reads
+   transTrip and cycle3 on RSiena (step 2 above), so the co-evolution
+   estimator's closure reads are a summary-set question: the co-evolution
+   summaries carry the same network block, but the flow must now share it
+   with the selection block. Worth a look at the joint posterior of
+   (transTrip, cycle3, simZ) on Glasgow before spending the two days.
+
+`fit.py` uses the step-3 model by default.
+
+Next: the closure look (hours), then the 10⁷ co-evolution set on this
+population (days), then Knecht.

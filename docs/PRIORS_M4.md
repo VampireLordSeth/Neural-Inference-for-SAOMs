@@ -62,3 +62,21 @@ Glasgow-sized panel simulated at RSiena's estimates.
 `saomsim.population`: one regime flag, a cap function, tests. Generation
 ≈ 3.7 h, training ≈ 3.5 h, SBC minutes. Seed 71; `data/train_m4b.npz`,
 `npe_m4b.*`.
+
+## Step 3 (co-evolution only): starts with behaviour homophily
+
+Added 2026-09-18 after the co-evolution estimator on the step-2 population read
+Glasgow's rates low and its selection and influence high, and the screen put
+the start-network selection statistic x0_simZ at the 98th–99th percentile for
+both s50 and Glasgow (`docs/M4_RESULTS.md`). Real friendship networks are
+already homophilous on the behaviour at wave 1; starts drawn independently of
+z0 cannot be.
+
+`start="homophilous"` keeps step 2's density mixture and cap, and runs the
+burn-in of the burnt-in half through the joint simulator with θ₀ ~ prior on
+the structural *and* selection effects and rate_beh = 0 (z0 frozen), for the
+same 10·n expected ministeps. Half the starts therefore carry whatever
+homophily the drawn selection effects imply — positive or negative — and half
+carry none, so x0_simZ spans the real range without asserting that X0 is
+stationary under the θ being inferred (the prior draw is independent, as in
+the M2 design). Results and the closure side-effect in `docs/M4_RESULTS.md`.

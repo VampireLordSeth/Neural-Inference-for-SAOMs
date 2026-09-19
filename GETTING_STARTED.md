@@ -360,9 +360,15 @@ bandwidth is modest, so treat it as a throughput box.
     9 of 14 inside, network rates 2.3–3.0 sd low, selection and influence
     1.7–1.8 sd high. Screen: real starts are homophilous on drinking
     (x0_simZ at the 98th–99th percentile of the population, whose starts are
-    generated independently of behaviour). Next: step 3, starts burnt in
-    under the selection effects; then Knecht classrooms. Sparse simulator for
-    n > 500 remains.
+    generated independently of behaviour). Step 3 (2026-09-18, `homophilous`
+    regime): Glasgow 11 of 14 inside, rates z 1.3/1.9, selection/influence z
+    −1.3/−1.4 (both improved), but closure worse (transTrip z 2.2, cycle3
+    −2.6); SBC shows 0.1-sd tilts (simZ 0.544) — the wider population wants
+    10⁷. s50 influence/quad unchanged across four populations: not a
+    population effect. `benchmarks/fit.py` fits any three-wave panel from CSVs
+    with the in-distribution screen. Next: joint (transTrip, cycle3, simZ)
+    posterior on Glasgow; 10⁷ co-evolution on the step-3 population (~2 days);
+    Knecht. Sparse simulator for n > 500 remains.
 
 ## 8. Conventions worth keeping
 
