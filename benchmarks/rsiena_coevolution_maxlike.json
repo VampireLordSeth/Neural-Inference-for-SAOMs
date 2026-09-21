@@ -5,7 +5,7 @@
   "cond": false,
   "n3": 5000,
   "mult": 10,
-  "init": "C:/Users/IG-88/AppData/Local/Temp/claude/c--Users-IG-88-Desktop-Code-Network-Inference/f318eed6-8491-4c02-8a0d-db6d4a4a61f6/scratchpad/maxlike_run1.json",
+  "init": "first pass (n3=3000, mult=5) of this script, not kept",
   "runs": 4,
   "seconds": 22976.8522138596,
   "tconv_max": [
