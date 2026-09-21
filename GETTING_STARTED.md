@@ -367,8 +367,16 @@ bandwidth is modest, so treat it as a throughput box.
     10⁷. s50 influence/quad unchanged across four populations: not a
     population effect. `benchmarks/fit.py` fits any three-wave panel from CSVs
     with the in-distribution screen. Closure is not traded against selection
-    in the Glasgow posterior (|r| ≤ 0.1); selection–density r = −0.75. Next:
-    10⁷ co-evolution on the step-3 population (~2 days); Knecht. Sparse
+    in the Glasgow posterior (|r| ≤ 0.1); selection–density r = −0.75.
+    10⁷ co-evolution on the step-3 population done 2026-09-21 (ten shards,
+    34 h generation; 257 epochs, 23 h; validation loss 0.894 vs 2.525):
+    SBC tilts gone (simZ 0.489), coverage within 1.1 pts on all 14; Glasgow
+    closure fixed (transTrip z 1.1, cycle3 −0.6), structural block within
+    1.1 sd, 11 of 14 inside — the three outside are now simZ/avAlt/quad
+    (z −1.8/−2.0/1.8), the same reads as at 10⁶ and step 2 with tighter
+    intervals; s50 avAlt/quad unchanged for the fifth time. The Glasgow
+    selection/influence offset is neither budget nor start regime. Next:
+    RSiena ML fit and PPC on Glasgow for that triple; Knecht. Sparse
     simulator for n > 500 remains.
 
 ## 8. Conventions worth keeping

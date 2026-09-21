@@ -63,7 +63,7 @@ unvalidated step.
 | **Out-of-distribution envelope** | What happens when a dataset falls outside the training population, and a one-line screen that catches most such cases. | done · `docs/OOD_RESULTS.md` |
 | **M3a — Multiple waves** | Three observation waves, one rate per period. Matches RSiena's three-wave fit; the posterior tightens with the extra wave just as RSiena's standard errors do. | done · `docs/M3_RESULTS.md` |
 | **M3b — Selection vs influence** | Networks and a behaviour (e.g. alcohol use) evolving together. Simulator validated against RSiena; a 14-parameter estimator is calibrated across sizes and behaviour scales and agrees with RSiena on the classic alcohol-and-friendship data, recovering both selection and influence; at ten million training panels every RSiena estimate lies inside the amortized 90% interval. | done · `docs/M3_RESULTS.md` |
-| **M4 — Application** | Many networks at once, at a scale existing tools cannot reach. Step 1: the estimator extends to networks of up to 200 actors, calibrated at every size; on the full Glasgow school panel (129 pupils) the first version matched RSiena on the structural effects but read the change rates low, traced to a training population too dense for a real school network; with starts that keep mean degree fixed as n grows (step 2) all nine parameters agree with RSiena, in 0.06 s against RSiena's 219 s. | in progress · `docs/M4_RESULTS.md` |
+| **M4 — Application** | Many networks at once, at a scale existing tools cannot reach. Step 1: the estimator extends to networks of up to 200 actors, calibrated at every size; on the full Glasgow school panel (129 pupils) the first version matched RSiena on the structural effects but read the change rates low, traced to a training population too dense for a real school network; with starts that keep mean degree fixed as n grows (step 2) all nine parameters agree with RSiena, in 0.06 s against RSiena's 219 s. With a co-evolving behaviour (14 parameters, 10⁷ panels) the structural effects and rates agree too; selection and influence read 1.8–2.0 sd above RSiena's method-of-moments values, a stable offset now being checked against RSiena's likelihood fit. | in progress · `docs/M4_RESULTS.md` |
 
 Headline numbers so far:
 
@@ -137,7 +137,7 @@ Add `backend="torch"` to run on a GPU.
 
 With a trained estimator in `data/` (copied from the machine that trained it;
 the two current ones are `npe_m4b.pt` for a network with two covariates and
-`npe_coev_m4b.pt` for a network with a co-evolving behaviour) and the torch
+`npe_coev_m4_10m.pt` for a network with a co-evolving behaviour) and the torch
 environment:
 
 ```bash

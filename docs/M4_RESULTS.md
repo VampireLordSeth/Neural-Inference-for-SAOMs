@@ -441,6 +441,99 @@ made closure worse. Two things remain open and are separable:
    the co-evolution estimator under-trained on a wider population — the same
    item as 1.
 
-`fit.py` uses the step-3 model by default.
+`fit.py` used the step-3 model by default until the 10⁷ estimator below.
 
-Next: the 10⁷ co-evolution set on this population (days), then Knecht.
+## Step 3 at 10⁷ (2026-09-21)
+
+Same population, ten times the panels: ten shards (seeds 90–99,
+`npe_coev.py generate --start homophilous`, 3.1–3.4 h each, 82–89 panels/s,
+34 h in all on the Spark), trained at the 10⁶ settings. Artefacts
+`data/coev_m4_shards/` (Spark), `npe_coev_m4_10m.*`,
+`npe_coev_m4_10m_posterior_{glasgow,s50}.npz`, `coev_m4_10m.log`; the
+screening reference is unchanged (`models/screen_coev_m4b.npz`, same
+population). `fit.py` now tries this model first.
+
+| | |
+|---|---|
+| training set | 10⁷ panels, seeds 90–99, 62 summaries |
+| estimator | NSF 8 × 128, batch 1024, lr 5e-4; 257 epochs, 23.0 h; best validation loss 0.894 at epoch 237 (step 3 at 10⁶: 2.525) |
+
+### Calibration (fresh 4,000 draws, n ∈ [30, 197])
+
+![M4 step 3 co-evolution SBC ranks at 10⁷](figures/m4_10m_coev_sbc_ranks_population.png)
+
+**Coverage within 1.1 points of nominal on all 14** (90 %: 0.889–0.906; 95 %:
+0.941–0.956). The simZ tilt is gone (mean rank 0.544 → 0.489; 0.46–0.51 in
+every n band), and so are cycle3 (0.522 → 0.505) and recip's under-read
+(0.471 → 0.515). KS rejects six of fourteen instead of eleven, on tilts of
+0.02–0.03: transTrip 0.522, quad 0.534, altZ 0.473, avAlt 0.486, recip
+0.515, rate_net₁ 0.508. quad is the one that did not improve (0.519 →
+0.534, rising to 0.55 at n ≥ 170). The 10⁶ → 10⁷ step did what it did on
+the three previous populations: the 0.1-sd tilts went, and what is left is
+at the resolution of 4,000 draws.
+
+### Glasgow, step 3 at 10⁶ → 10⁷
+
+| parameter | RSiena est ± se | 10⁶ | z | **10⁷** | **z** |
+|---|---|---|---|---|---|
+| rate_net₁ | 10.57 ± 0.90 | 9.12 ± 1.14 | 1.27 | 9.18 ± 0.88 | 1.58 |
+| rate_net₂ | 8.58 ± 0.80 | 7.22 ± 0.72 | 1.90 | **7.98 ± 0.89** | **0.68** |
+| rate_beh₁ | 1.12 ± 0.20 | 1.44 ± 0.32 | −1.00 | 1.42 ± 0.27 | −1.11 |
+| rate_beh₂ | 1.72 ± 0.28 | 2.68 ± 0.74 | −1.29 | 2.36 ± 0.54 | −1.17 |
+| density | −2.77 ± 0.06 | −2.68 ± 0.10 | −0.89 | **−2.83 ± 0.09** | **0.61** |
+| recip | 2.42 ± 0.11 | 2.31 ± 0.11 | 0.99 | 2.36 ± 0.13 | 0.51 |
+| transTrip | 0.67 ± 0.05 | 0.53 ± 0.07 | 2.16 | **0.60 ± 0.06** | **1.07** |
+| cycle3 | −0.51 ± 0.09 | −0.19 ± 0.12 | −2.58 | **−0.44 ± 0.12** | **−0.60** |
+| egoZ | 0.01 ± 0.05 | 0.06 ± 0.09 | −0.63 | −0.07 ± 0.09 | 0.94 |
+| altZ | 0.06 ± 0.05 | −0.08 ± 0.09 | 1.49 | −0.01 ± 0.10 | 0.67 |
+| **simZ (selection)** | 1.16 ± 0.32 | 2.05 ± 0.70 | −1.27 | **2.09 ± 0.52** | **−1.78** |
+| linear | 0.44 ± 0.14 | 0.40 ± 0.20 | 0.22 | 0.44 ± 0.19 | −0.03 |
+| quad | −0.56 ± 0.20 | −0.96 ± 0.26 | 1.55 | **−1.05 ± 0.27** | **1.80** |
+| **avAlt (influence)** | 1.35 ± 0.59 | 2.45 ± 0.79 | −1.40 | **2.82 ± 0.75** | **−1.96** |
+
+- **Closure is fixed**, as the step-3 diagnosis said it would be: transTrip
+  0.60 (z 1.1) and cycle3 −0.44 (z −0.6), both well inside the 90 %
+  intervals. Density moved onto RSiena (−2.83, z 0.6) and rate_net₂ came up
+  (z 1.9 → 0.7). The whole structural block — density, recip, transTrip,
+  cycle3, egoZ, altZ — is now within 1.1 sd, at the same posterior widths
+  as 10⁶.
+- **Selection and influence did not move toward RSiena.** Still eleven of
+  fourteen inside, but the three outside are now simZ 2.09 ± 0.52 (z −1.8),
+  avAlt 2.82 ± 0.75 (z −2.0) and quad −1.05 ± 0.27 (z 1.8). The 10⁶ step-3
+  reads (2.05 / 2.45 / −0.96) were the same numbers with wider intervals;
+  the step-2 reads (2.03 / 2.63 / −0.87) too; only the simZ interval
+  changed, narrowing from ± 0.70 to ± 0.52. Across three budgets and two
+  start regimes the estimator reads Glasgow's selection at ≈ 2.0 and its
+  influence at ≈ 2.5–2.8 against RSiena's 1.16 and 1.35, and the 10⁷ model
+  says so with more confidence. The joint posterior keeps the same shape:
+  selection × density r = −0.68 (−0.75 at 10⁶), selection × influence
+  −0.16, influence × quad −0.93, closure × selection |r| ≤ 0.1.
+
+### s50 from the same model
+
+All 14 inside the 90 % intervals, max |z| 1.58 (avAlt). **avAlt 2.70 ±
+0.87 (z −1.58), quad −1.06 ± 0.33 (z 1.40)** — against 2.48 / −1.02 at step
+3 with 10⁶, 2.70 / −1.00 at M3b 10⁶, 2.72 / −1.05 at M3b 10⁷, 2.53 / −0.85
+at step 2. Fifth estimator, same pair to within 0.3 sd. simZ 1.99 ± 0.74
+(z −0.8), selection on RSiena as before.
+
+### What the 10⁷ run settles
+
+1. **The population was under-trained at 10⁶, and closure was the symptom.**
+   Budget fixed the SBC tilts and the Glasgow closure reads; this is the
+   fourth population on which the 10⁶ → 10⁷ step has done exactly that, and
+   the pattern can now be taken as the rule: a new population is not judged
+   at 10⁶.
+2. **The Glasgow selection/influence offset is not a budget effect and not a
+   start-regime effect.** It is the same 0.9 / 1.4 gap (in RSiena units) at
+   every budget and in both start regimes, and it is the same *pair* that is
+   stable on s50 — with quad tied to influence at r = −0.93 in both panels.
+   What remains open is which side of the gap is right. On s50 the ML fit
+   and the PPC (`docs/M3_RESULTS.md`) could not resolve it; Glasgow, with
+   129 actors, has more information, and an RSiena maximum-likelihood fit
+   and a behaviour-statistic PPC on Glasgow are the two checks that can
+   place the truth. That is the next co-evolution item, ahead of any further
+   population change.
+
+Next: Glasgow ML fit and PPC for the selection/influence/quad triple; Knecht
+classrooms with `fit.py`; sparse simulator for n > 500.

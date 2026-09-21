@@ -47,7 +47,7 @@ MODELS = {
         "doc": "docs/M4_RESULTS.md (step 2)",
     },
     "coev": {
-        "posterior": ["data/npe_coev_m4b.pt", "data/npe_coev_m4.pt"],
+        "posterior": ["data/npe_coev_m4_10m.pt", "data/npe_coev_m4b.pt", "data/npe_coev_m4.pt"],
         "screen": ["models/screen_coev_m4b.npz", "models/screen_coev_m4.npz"],
         "doc": "docs/M4_RESULTS.md (co-evolution)",
     },
