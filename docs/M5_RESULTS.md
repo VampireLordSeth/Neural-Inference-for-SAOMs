@@ -137,11 +137,69 @@ average mechanism is easy and cheap; measuring how much it varies needs either
 more schools or larger ones.** Nineteen schools of 31–91 pupils, each observed
 twice, are enough for the first and not the second.
 
+## The co-evolution estimator: selection and influence on delinquency
+
+Same population, network x delinquency (12 parameters at two waves): 10⁶
+panels in 19 min, trained in 58 min (best validation loss 3.824 at epoch 92 of
+112). Artefacts `data/npe_coev_m5.pt`, `models/screen_coev_m5.npz`,
+`data/baerveldt/coev_school*_posterior.npz`.
+
+### Calibration (fresh 4,000 draws)
+
+![M5 co-evolution SBC ranks](figures/m5_coev_sbc_ranks_population.png)
+
+**Coverage within 2.1 points of nominal on all twelve** (90 %: 0.879–0.900;
+95 %: 0.936–0.951). Mean ranks 0.481–0.515. KS rejects three of twelve — avAlt
+0.000 (mean rank 0.481), recip 0.002 (0.515), altZ 0.020 (0.490) — the usual
+10⁶ tilts.
+
+### The nineteen schools
+
+RSiena's co-evolution fit diverges on two schools (1 and 13: the update step
+exceeded RSiena's `thetaBound`), so there are 17 comparisons. **193 of 204
+parameter-school pairs inside the 90 % interval (95 %)**, mean z between −0.89
+and +0.65. The amortized estimator returns a posterior for schools 1 and 13 as
+well — wide ones, which is the point: where stochastic approximation has no
+answer, the posterior says how little the data determine.
+
+Delinquency, across the 19 schools:
+
+| | population μ [90 %] | τ | s_med | range of school means |
+|---|---|---|---|---|
+| selection (simZ) | **1.46 [1.05, 1.86]** | 0.25 | 1.09 | 0.68 … 2.36 |
+| influence (avAlt) | **1.96 [1.51, 2.41]** | 0.31 | 1.16 | −0.06 … 2.76 |
+| shape (quad) | −0.55 [−0.68, −0.43] | 0.12 | 0.33 | |
+| behaviour rate | 1.47 [1.26, 1.71] | 0.22 | 0.44 | |
+
+Both selection and influence are clearly positive at the population level —
+pupils choose friends with similar delinquency *and* move toward their
+friends' level — which is the Snijders & Baerveldt (2003) finding, reached
+here from 19 posteriors rather than 19 estimation campaigns. Neither τ is
+resolvable: the per-school posterior sd (≈ 1.1) is four times the estimated
+between-school spread, so **these data cannot say whether selection or
+influence differs between schools**, only what they are on average. Two waves
+and 31–91 pupils are simply not much information about a behaviour process.
+
+Only the network rate has variation exceeding per-school uncertainty
+(τ 1.57, s_med 0.98, resolved) — schools differ in how fast their networks
+change, which is the least theoretically interesting of the parameters.
+
+### The influence–curvature ridge again
+
+The joint posteriors show the same geometry as s50 and Glasgow: quad × avAlt
+correlates **−0.63 (range −0.84 to −0.44)** in every school, while selection
+and influence are nearly independent (simZ × avAlt −0.04). The ridge that
+makes influence hard to pin down is a property of the model and the design,
+not of one dataset — nineteen further instances of it.
+
 ## Still to come
 
-- Co-evolution estimator on the same population (training), then the
-  delinquency selection/influence reads across the 19 schools.
-- The 10⁷ budget on both, per the rule that a new population is not judged at
-  10⁶.
-- A widened box for sparse networks (above), which changes the population and
-  therefore needs its own generation and training.
+- The 10⁷ budget on both estimators, per the rule that a new population is not
+  judged at 10⁶.
+- A widened box for sparse networks (above): it affects both estimators, and
+  on the co-evolution side the face warning fires on avAlt in six schools and
+  transTrip/cycle3 in the same sparse ones as before.
+- The behaviour-side screen flags to understand: `x0_egoZ` below the 2nd
+  percentile in schools 1, 9, 14, 15, 22 and `z0_z_sd` in 14, 18, 19, 22. The
+  population's starting delinquency distributions are evidently narrower than
+  the schools'.

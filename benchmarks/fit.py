@@ -56,6 +56,8 @@ RS_LABELS = {  # our names -> RSiena effect names as the R scripts here label th
     "rate": "{net}:rate_1",
     "rate_1": "{net}:rate_1",
     "rate_2": "{net}:rate_2",
+    "rate_net": "{net}:rate_1",
+    "rate_beh": "{beh}:rate_1",
     "rate_net_1": "{net}:rate_1",
     "rate_net_2": "{net}:rate_2",
     "rate_beh_1": "{beh}:rate_1",
@@ -204,7 +206,7 @@ def main():
     if kind == "coev":
         from saomsim.population_coev import coev_theta_names
 
-        pnames = coev_theta_names(3)
+        pnames = coev_theta_names(waves)
     else:
         from saomsim.population import rate_names
 
