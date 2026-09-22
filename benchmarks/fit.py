@@ -53,6 +53,7 @@ MODELS = {
     },
 }
 RS_LABELS = {  # our names -> RSiena effect names as the R scripts here label them
+    "rate": "{net}:rate_1",
     "rate_1": "{net}:rate_1",
     "rate_2": "{net}:rate_2",
     "rate_net_1": "{net}:rate_1",
@@ -147,10 +148,12 @@ def main():
     torch.manual_seed(a.seed)
     Xs = load_waves(a.waves)
     n, waves = Xs[0].shape[0], len(Xs)
-    if waves != 3:
+    if waves != 3 and not a.posterior:
         raise SystemExit(
             "the saved M4 estimators are three-wave models; pass --posterior for others"
         )
+    if waves < 2:
+        raise SystemExit("at least two waves are needed")
     if a.behaviour:
         kind = "coev"
         from saomsim.population_coev import (
@@ -203,13 +206,17 @@ def main():
 
         pnames = coev_theta_names(3)
     else:
-        pnames = ["rate_1", "rate_2"] + list(model.labels)
+        from saomsim.population import rate_names
+
+        pnames = rate_names(waves) + list(model.labels)
     if len(pnames) != len(low):
         raise SystemExit(
             f"{post_path} has {len(low)} parameters, expected {len(pnames)} for the {kind} model"
         )
 
-    print(f"{kind} model: {post_path.relative_to(ROOT)}  ({MODELS[kind]['doc']})")
+    shown = post_path.resolve()
+    shown = shown.relative_to(ROOT) if shown.is_relative_to(ROOT) else shown
+    print(f"{kind} model: {shown}  ({MODELS[kind]['doc']})")
     print(f"data: n={n}, {waves} waves, ties per wave {[int(X.sum()) for X in Xs]}; {consts}")
 
     flags = []

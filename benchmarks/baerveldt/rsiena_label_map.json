@@ -1,0 +1,12 @@
+{
+  "rate": "net:rate_1",
+  "rate_1": "net:rate_1",
+  "rate_2": "net:rate_2",
+  "density": "net:density",
+  "recip": "net:recip",
+  "transTrip": "net:transTrip",
+  "cycle3": "net:cycle3",
+  "altX(v)": "net:altX",
+  "egoX(v)": "net:egoX",
+  "sameX(g)": "net:sameX"
+}
