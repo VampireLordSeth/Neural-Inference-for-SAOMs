@@ -38,6 +38,10 @@ BURNIN_STEPS_PER_ACTOR = 10
 # "sparse" start regime (docs/PRIORS_M4.md): half the starts draw a mean degree
 # instead of a tie fraction, and half of those cap out-degree as nomination surveys do.
 MEAN_DEGREE = (2.0, 10.0)
+# "survey" start regime (docs/PRIORS_M5.md): every start draws a mean degree k ~ U(0.5, 6),
+# the range of emotional-support and best-friend nomination surveys (Baerveldt schools
+# 0.8-3.4), half of them out-degree capped as above.
+SURVEY_MEAN_DEGREE = (0.5, 6.0)
 CAP_EXCESS = (1, 3)  # cap = ceil(mean degree) + U{1..3}
 
 
@@ -111,15 +115,17 @@ def sample_start_networks(
     d = k / (n - 1) falls with n as real friendship networks do; half of those are
     then capped at ceil(k) + U{1..3} out-ties per actor, as nomination surveys cap
     them (docs/PRIORS_M4.md). The burn-in is applied before the cap.
+    ``start="survey"``: every start draws k ~ U(0.5, 6) (docs/PRIORS_M5.md), the
+    same cap rule on half of them.
     """
-    if start not in ("m2", "sparse"):
+    if start not in ("m2", "sparse", "survey"):
         raise ValueError(f"unknown start regime {start!r}")
     d = rng.uniform(*ER_DENSITY, size=B)
     sparse = np.zeros(B, dtype=bool)
     cap = np.full(B, -1)
-    if start == "sparse":
-        sparse = rng.random(B) < 0.5
-        k = rng.uniform(*MEAN_DEGREE, size=B)
+    if start in ("sparse", "survey"):
+        sparse = rng.random(B) < 0.5 if start == "sparse" else np.ones(B, dtype=bool)
+        k = rng.uniform(*(MEAN_DEGREE if start == "sparse" else SURVEY_MEAN_DEGREE), size=B)
         d = np.where(sparse, k / (n - 1), d)
         capped = sparse & (rng.random(B) < 0.5)
         cap = np.where(
@@ -368,12 +374,13 @@ def generate_m2(
             "effects": probe.labels,
             "prior_low": prior.low.tolist(),
             "prior_high": prior.high.tolist(),
-            "start": (
-                "population: 50% ER d~U(0.02,0.2), 50% 10n-step SAOM burn-in at theta0~prior"
-                if start == "m2"
-                else "sparse: 50% d~U(0.02,0.2) / 50% mean degree k~U(2,10), half of those "
-                "capped at ceil(k)+U{1..3} out-ties; 50% 10n-step SAOM burn-in at theta0~prior"
-            ),
+            "start": {
+                "m2": "population: 50% ER d~U(0.02,0.2), 50% 10n-step SAOM burn-in at theta0~prior",
+                "sparse": "sparse: 50% d~U(0.02,0.2) / 50% mean degree k~U(2,10), half of those "
+                "capped at ceil(k)+U{1..3} out-ties; 50% 10n-step SAOM burn-in at theta0~prior",
+                "survey": "survey: mean degree k~U(0.5,6) for every start, half capped at "
+                "ceil(k)+U{1..3} out-ties; 50% 10n-step SAOM burn-in at theta0~prior",
+            }[start],
             "start_regime": start,
             "covariates": "v: 50% N(0,1) / 50% Likert K in {3,4,5}, centred; g: K in {2,3,4}",
         },

@@ -250,3 +250,20 @@ def test_three_wave_generation_layout_and_storage(tmp_path):
     ts2 = generate_m2(p2, 4, rng, n_range=(20, 21), chunk=4)
     ts2.save(tmp_path / "w2.npz")
     assert M2TrainingSet.load(tmp_path / "w2.npz").Xw is None
+
+
+def test_survey_start_regime_every_start_sparse():
+    rng = np.random.default_rng(5)
+    B, n = 300, 60
+    covs = sample_covariates(B, n, rng)
+    model = m2_model(covs)
+    X0, info = sample_start_networks(B, n, rng, prior_for(model), model, start="survey")
+    assert info["sparse"].all()
+    capped, burn = info["cap"] > 0, info["burnin"]
+    assert 0.35 < capped.mean() < 0.65
+    outdeg = X0.sum(axis=2)
+    assert np.all(outdeg[capped] <= info["cap"][capped, None])
+    # un-burnt, uncapped starts sit at the drawn mean degree, k ~ U(0.5, 6)
+    er = ~burn & ~capped
+    md = outdeg[er].mean(axis=1)
+    assert md.min() < 1.5 and md.max() < 8 and 2 < md.mean() < 4.5

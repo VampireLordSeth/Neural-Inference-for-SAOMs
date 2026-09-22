@@ -26,9 +26,10 @@ def main():
     ap.add_argument("--dtype", default="float32")
     ap.add_argument("--no-networks", action="store_true")
     ap.add_argument("--waves", type=int, default=2)
+    ap.add_argument("--n-min", type=int, default=20)
     ap.add_argument("--n-max", type=int, default=80)
     ap.add_argument("--rate-max", type=float, default=12.0)
-    ap.add_argument("--start", default="m2", choices=["m2", "sparse"], help="start-network regime")
+    ap.add_argument("--start", default="m2", choices=["m2", "sparse", "survey"], help="start-network regime")
     args = ap.parse_args()
 
     backend = args.backend
@@ -55,7 +56,7 @@ def main():
         keep_networks=not args.no_networks,
         progress=True,
         waves=args.waves,
-        n_range=(20, args.n_max),
+        n_range=(args.n_min, args.n_max),
         start=args.start,
     )
     dt = time.perf_counter() - t0

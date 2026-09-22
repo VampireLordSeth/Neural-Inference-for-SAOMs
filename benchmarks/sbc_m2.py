@@ -35,8 +35,9 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--waves", type=int, default=2)
     ap.add_argument("--rate-max", type=float, default=12.0)
+    ap.add_argument("--n-min", type=int, default=20)
     ap.add_argument("--n-max", type=int, default=80)
-    ap.add_argument("--start", default="m2", choices=["m2", "sparse"], help="start-network regime")
+    ap.add_argument("--start", default="m2", choices=["m2", "sparse", "survey"], help="start-network regime")
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -48,7 +49,7 @@ def main():
 
     prior = m2_prior(args.waves, rate=(1.0, args.rate_max))
     rng = np.random.default_rng(args.seed)
-    n_range = (args.n, args.n) if args.n else (20, args.n_max)
+    n_range = (args.n, args.n) if args.n else (args.n_min, args.n_max)
     t0 = time.perf_counter()
     ts = generate_m2(
         prior,

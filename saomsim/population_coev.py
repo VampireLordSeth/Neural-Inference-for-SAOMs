@@ -33,6 +33,7 @@ from .population import (
     CAP_EXCESS,
     ER_DENSITY,
     MEAN_DEGREE,
+    SURVEY_MEAN_DEGREE,
     N_MAX,
     N_RANGE,
     _pack,
@@ -221,7 +222,7 @@ class CoevTrainingSet:
             )
 
 
-START_REGIMES = ("m2", "sparse", "homophilous")
+START_REGIMES = ("m2", "sparse", "homophilous", "survey")
 
 
 def _start_networks(
@@ -239,9 +240,10 @@ def _start_networks(
         raise ValueError(f"unknown start regime {start!r}")
     d = rng.uniform(*ER_DENSITY, size=B)
     cap = np.full(B, -1)
-    if start in ("sparse", "homophilous"):
-        sparse = rng.random(B) < 0.5
-        k = rng.uniform(*MEAN_DEGREE, size=B)
+    if start in ("sparse", "homophilous", "survey"):
+        # "survey" (docs/PRIORS_M5.md): every start sparse, k ~ U(0.5, 6)
+        sparse = rng.random(B) < 0.5 if start != "survey" else np.ones(B, dtype=bool)
+        k = rng.uniform(*(MEAN_DEGREE if start != "survey" else SURVEY_MEAN_DEGREE), size=B)
         d = np.where(sparse, k / (n - 1), d)
         capped = sparse & (rng.random(B) < 0.5)
         cap = np.where(

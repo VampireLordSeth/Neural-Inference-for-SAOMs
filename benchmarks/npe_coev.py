@@ -83,7 +83,7 @@ def cmd_generate(a):
         a.N,
         rng,
         waves=a.waves,
-        n_range=(20, a.n_max),
+        n_range=(a.n_min, a.n_max),
         chunk=a.chunk,
         backend=torch_backend(),
         keep_networks=not a.no_networks,
@@ -179,7 +179,7 @@ def cmd_sbc(a):
         a.N,
         rng,
         waves=a.waves,
-        n_range=(20, a.n_max),
+        n_range=(a.n_min, a.n_max),
         chunk=a.chunk,
         backend=torch_backend(),
         keep_networks=False,
@@ -293,9 +293,10 @@ def main():
     g.add_argument("--seed", type=int, default=50)
     g.add_argument("--chunk", type=int, default=2048)
     g.add_argument("--no-networks", action="store_true")
+    g.add_argument("--n-min", type=int, default=20)
     g.add_argument("--n-max", type=int, default=80)
     g.add_argument("--rate-net-max", type=float, default=12.0)
-    g.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous"])
+    g.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous", "survey"])
     t = sub.add_parser("train")
     t.add_argument("--data", nargs="+", default=["data/train_coev3.npz"])
     t.add_argument("--out", default="data/npe_coev3")
@@ -313,9 +314,10 @@ def main():
     s.add_argument("--chunk", type=int, default=100)
     s.add_argument("--posterior-samples", type=int, default=1000)
     s.add_argument("--seed", type=int, default=3)
+    s.add_argument("--n-min", type=int, default=20)
     s.add_argument("--n-max", type=int, default=80)
     s.add_argument("--rate-net-max", type=float, default=12.0)
-    s.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous"])
+    s.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous", "survey"])
     r = sub.add_parser("s50")
     r.add_argument("--posterior", default="data/npe_coev3.pt")
     r.add_argument("--real", default="s50", choices=list(REAL))
