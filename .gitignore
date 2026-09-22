@@ -9,3 +9,6 @@ notebooks/*.ipynb_checkpoints/
 benchmarks/*.npz
 data/
 *.docx
+
+# third-party reference material, not ours to redistribute
+cusna-npe-paper-v1/
