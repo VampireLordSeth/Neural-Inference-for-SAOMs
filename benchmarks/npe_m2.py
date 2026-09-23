@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmarks.coverage import coverage_table  # noqa: E402
 from benchmarks.m2 import glasgow_as_m2, m2_prior, s50_as_m2  # noqa: E402
 from saomsim.population import load_m2_summaries, transform_m2  # noqa: E402
+from saomsim.prior import BoxPrior  # noqa: E402
 
 
 def main():
@@ -63,10 +64,17 @@ def main():
     # ---------------------------------------------------------------- data
     ts = load_m2_summaries(args.data)
     waves = int(ts.meta.get("waves", 2))
-    rate_hi = args.rate_max if args.rate_max is not None else float(ts.meta["prior_high"][0])
-    prior_box = m2_prior(waves, rate=(1.0, rate_hi))
-    if list(prior_box.names) != list(ts.theta_names):
-        raise SystemExit(f"prior/theta mismatch: {prior_box.names} vs {ts.theta_names}")
+    # the training set carries its own box (rate range, and "default" or "sparse" effects);
+    # rebuilding it here from defaults would silently train against the wrong prior
+    prior_box = BoxPrior(
+        tuple(ts.theta_names),
+        np.asarray(ts.meta["prior_low"], dtype=float),
+        np.asarray(ts.meta["prior_high"], dtype=float),
+    )
+    if args.rate_max is not None and not np.isclose(prior_box.high[0], args.rate_max):
+        raise SystemExit(
+            f"--rate-max {args.rate_max} but the training set has {prior_box.high[0]}"
+        )
     if args.limit:
         ts.theta, ts.summary, ts.n = (
             ts.theta[: args.limit],

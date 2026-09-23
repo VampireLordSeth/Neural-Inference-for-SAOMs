@@ -13,10 +13,19 @@ from saomsim.prior import BoxPrior
 M2_RANGES = {k.replace("(alc)", "(v)").replace("(smk)", "(g)"): v for k, v in PRIOR_RANGES.items()}
 
 
-def m2_prior(waves: int = 2, rate=None) -> BoxPrior:
-    """Box prior with one rate range per period (default U(1, 12)) and the M2 effect ranges."""
+def m2_prior(waves: int = 2, rate=None, box: str = "default") -> BoxPrior:
+    """Box prior with one rate range per period (default U(1, 12)) and the M2 effect ranges.
+
+    ``box="sparse"`` widens density, transTrip and cycle3 (``SPARSE_RANGES`` in
+    ``saomsim.population_coev``, docs/PRIORS_M5.md)."""
+    if box not in ("default", "sparse"):
+        raise ValueError(f"unknown box {box!r}")
     probe = m2_model(sample_covariates(1, 20, np.random.default_rng(0)))
     ranges = dict(M2_RANGES)
+    if box == "sparse":
+        from saomsim.population_coev import SPARSE_RANGES
+
+        ranges.update(SPARSE_RANGES)
     rate = tuple(rate) if rate is not None else ranges.pop("rate")
     ranges.pop("rate", None)
     names = rate_names(waves) + probe.labels

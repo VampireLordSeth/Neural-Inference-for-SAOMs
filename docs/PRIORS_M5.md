@@ -41,7 +41,7 @@ Two estimators, both two-wave (one period, one network rate), generated with
 | n | U{30..100} |
 | start regime | `survey` (`population.sample_start_networks`, `population_coev._start_networks`): every start draws a mean degree k ~ U(0.5, 6), ER seed at d = k/(n−1); 50 % burnt in for 10·n ministeps at θ₀ ~ prior (structural effects only for the co-evolution population); 50 % capped at ceil(k) + U{1..3} out-ties after the burn-in |
 | waves | 2 |
-| network effects and box | M2/M4: rate U(1, 12); density U(−4, 0); recip U(−1, 4); transTrip U(−0.5, 1.5); cycle3 U(−1.5, 0.5); network-only adds altX(v), egoX(v) U(−1, 1), sameX(g) U(−1, 2) |
+| network effects and box | rate U(1, 12); recip U(−1, 4); network-only adds altX(v), egoX(v) U(−1, 1), sameX(g) U(−1, 2). **Sparse box** (`--box sparse`, below): density U(−5, 0), transTrip U(−0.5, 3), cycle3 U(−3.5, 0.5) |
 | covariates (network-only) | M2: v 50 % N(0,1) / 50 % Likert K ∈ {3,4,5}, centred; g K ∈ {2,3,4} groups. For the schools v = ln(offences+1) centred, g = sex |
 | co-evolution | M3b: rate_beh U(0.3, 6); egoZ, altZ U(−1, 1); simZ U(−1, 4); linear U(−1.5, 1.5); quad U(−1.5, 0.5); avAlt U(−1, 4); behaviour on 3–5 categories, one period. Delinquency 0–4 is passed as 1–5 |
 | summaries | the M2 two-wave set (network-only) and the M3b set at two waves (co-evolution), as the code defines them for `waves=2` |
@@ -63,6 +63,21 @@ Two estimators, both two-wave (one period, one network rate), generated with
 - **n 30–100.** The schools are 31–91; the margins cost little at two waves
   (the whole 10⁶ set is minutes on the Spark, `docs/SCALING.md`).
 - **Rates to 12.** The largest RSiena rate is 9.7 (school 14); M2's box.
+- **A wider box on density and closure** (`SPARSE_RANGES` in
+  `saomsim/population_coev.py`; `--box sparse`). The default box comes from
+  `docs/PRIORS.md`, set on mid-density friendship networks where transitive
+  triplets are "typically 0.2–0.8". A network at mean degree 1 prices the same
+  amount of triadic structure into an order of magnitude fewer ties, so the
+  coefficient that reproduces a given level of closure is correspondingly
+  larger, and density correspondingly lower. The schools here run at mean
+  degree 0.8–3.4, so density goes to −5, transTrip to 3 and cycle3 to −3.5.
+  This is a consequence of the design's sparsity, which is known before any
+  fitting; the first (default-box) run of 2026-09-22 then confirmed it
+  empirically, with five of nineteen schools' RSiena estimates outside the old
+  box and the prior-face warning firing on exactly those five
+  (`docs/M5_RESULTS.md`). Widening is not free: the same training budget must
+  cover more parameter volume, so posteriors widen everywhere, and the effect
+  on the mid-range panels (s50, the denser schools) is measured, not assumed.
 - **Two separate estimators** rather than one with covariates *and* a
   behaviour: the RSiena references are fitted in exactly these two layouts,
   and the 2003 paper's model is the network-only one (delinquency as a

@@ -47,6 +47,17 @@ SEL_EFFECTS = ["egoZ", "altZ", "simZ"]
 BEH_EFFECTS = ["linear", "quad", "avAlt"]
 Z_MAX_CHOICES = (3, 4, 5)
 
+# Sparse-network box (docs/PRIORS_M5.md). Networks with a mean degree near 1 price the
+# same amount of triadic structure into far fewer ties, so closure coefficients have to be
+# larger in magnitude than the values published for mid-density friendship networks that
+# set the default box; density likewise runs lower. Chosen from the sparsity of the design,
+# not from any estimate on the data being analysed.
+SPARSE_RANGES = {
+    "density": (-5.0, 0.0),
+    "transTrip": (-0.5, 3.0),
+    "cycle3": (-3.5, 0.5),
+}
+
 RANGES = {
     "rate_net": (1.0, 12.0),
     "rate_beh": (0.3, 6.0),
@@ -70,10 +81,17 @@ def coev_theta_names(waves: int) -> list[str]:
     return rn + rb + NET_EFFECTS + SEL_EFFECTS + BEH_EFFECTS
 
 
-def coev_prior(waves: int = 2, rate_net=None) -> BoxPrior:
-    """The M3b box; ``rate_net`` overrides the network-rate range (default U(1, 12))."""
+def coev_prior(waves: int = 2, rate_net=None, box: str = "default") -> BoxPrior:
+    """The M3b box; ``rate_net`` overrides the network-rate range (default U(1, 12)).
+
+    ``box="sparse"`` widens density, transTrip and cycle3 for sparse populations
+    (``SPARSE_RANGES``, docs/PRIORS_M5.md)."""
+    if box not in ("default", "sparse"):
+        raise ValueError(f"unknown box {box!r}")
     names = coev_theta_names(waves)
     ranges = dict(RANGES)
+    if box == "sparse":
+        ranges.update(SPARSE_RANGES)
     if rate_net is not None:
         ranges["rate_net"] = tuple(rate_net)
     lo, hi = [], []

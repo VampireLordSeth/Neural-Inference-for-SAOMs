@@ -30,6 +30,7 @@ from saomsim.population_coev import (  # noqa: E402
     real_coev_summary,
     transform_coev,
 )
+from saomsim.prior import BoxPrior  # noqa: E402
 
 
 def rs_names(beh: str = "alc") -> dict:
@@ -72,7 +73,7 @@ def torch_backend(dtype="float32"):
 
 
 def cmd_generate(a):
-    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max))
+    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max), box=a.box)
     print(
         f"N={a.N} waves={a.waves} n<={a.n_max} start={a.start}\nprior:\n{prior.table()}", flush=True
     )
@@ -123,11 +124,12 @@ def cmd_train(a):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     ts = load_summaries(a.data)
     waves = int(ts.meta["waves"])
-    prior_box = coev_prior(waves, rate_net=(ts.meta["prior_low"][0], ts.meta["prior_high"][0]))
+    prior_box = BoxPrior(
+        tuple(ts.theta_names),
+        np.asarray(ts.meta["prior_low"], dtype=float),
+        np.asarray(ts.meta["prior_high"], dtype=float),
+    )
     assert list(prior_box.names) == ts.theta_names
-    assert np.allclose(prior_box.low, ts.meta["prior_low"]) and np.allclose(
-        prior_box.high, ts.meta["prior_high"]
-    ), "training set was generated with a different prior box"
     X = transform_coev(ts.summary, ts.summary_names, net_model())
     N = X.shape[0]
     print(f"N={N} waves={waves} summaries={X.shape[1]} device={device}", flush=True)
@@ -171,7 +173,7 @@ def cmd_sbc(a):
     from sbi.diagnostics import check_sbc
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max))
+    prior = coev_prior(a.waves, rate_net=(1.0, a.rate_net_max), box=a.box)
     rng = np.random.default_rng(a.seed)
     t0 = time.perf_counter()
     ts = generate_coev(
@@ -297,6 +299,7 @@ def main():
     g.add_argument("--n-max", type=int, default=80)
     g.add_argument("--rate-net-max", type=float, default=12.0)
     g.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous", "survey"])
+    g.add_argument("--box", default="default", choices=["default", "sparse"])
     t = sub.add_parser("train")
     t.add_argument("--data", nargs="+", default=["data/train_coev3.npz"])
     t.add_argument("--out", default="data/npe_coev3")
@@ -318,6 +321,7 @@ def main():
     s.add_argument("--n-max", type=int, default=80)
     s.add_argument("--rate-net-max", type=float, default=12.0)
     s.add_argument("--start", default="m2", choices=["m2", "sparse", "homophilous", "survey"])
+    s.add_argument("--box", default="default", choices=["default", "sparse"])
     r = sub.add_parser("s50")
     r.add_argument("--posterior", default="data/npe_coev3.pt")
     r.add_argument("--real", default="s50", choices=list(REAL))

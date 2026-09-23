@@ -30,6 +30,7 @@ def main():
     ap.add_argument("--n-max", type=int, default=80)
     ap.add_argument("--rate-max", type=float, default=12.0)
     ap.add_argument("--start", default="m2", choices=["m2", "sparse", "survey"], help="start-network regime")
+    ap.add_argument("--box", default="default", choices=["default", "sparse"], help="effect prior box")
     args = ap.parse_args()
 
     backend = args.backend
@@ -42,7 +43,7 @@ def main():
             device=backend.partition(":")[2] or None, dtype=getattr(torch, args.dtype)
         )
 
-    prior = m2_prior(args.waves, rate=(1.0, args.rate_max))
+    prior = m2_prior(args.waves, rate=(1.0, args.rate_max), box=args.box)
     print(f"N={args.N} backend={backend} chunk={args.chunk} seed={args.seed}")
     print(f"prior:\n{prior.table()}", flush=True)
     rng = np.random.default_rng(args.seed)
