@@ -234,18 +234,23 @@ particular **selection and influence are untouched**, so the substantive
 result below does not depend on the prior box — the best evidence available
 that it is not an artefact of it.
 
-Two caveats, both budget:
+One caveat, and it is budget: the network SBC is *worse* than at the narrow
+box (KS rejects six of eight, 90 % coverage 0.873–0.905, i.e. slightly under
+nominal on density and cycle3), because the same 10⁶ panels now have to cover
+a larger parameter volume. This is the argument for 10⁷ made concrete, and
+the section below is the result.
 
-1. On the network side the intervals are now *conservative*: 151 of 152 inside
-   a 90 % interval, with the z against RSiena's points spread 0.55 rather than
-   ≈ 1. Under the default box transTrip's posterior sd was 0.200 against
-   RSiena's own standard error of 0.241 — narrower than RSiena while being
-   truncated, i.e. confidently wrong; under the sparse box it is 0.303,
-   slightly wider than RSiena. The direction is right and the sharpness is a
-   budget question.
-2. The network SBC is worse than at the narrow box (KS rejects six of eight,
-   90 % coverage 0.873–0.905): the same 10⁶ panels now cover a larger
-   parameter volume. This is the argument for 10⁷ made concrete.
+On widths: under the default box transTrip's posterior sd was 0.200 against
+RSiena's own standard error of 0.241 — narrower than RSiena's while being
+truncated, i.e. confidently wrong; under the sparse box it is 0.303, wider
+than RSiena's. (An earlier draft of this section read the spread of z against
+RSiena's point estimates — 0.55 rather than ≈ 1 — as evidence that the
+intervals had become conservative. That inference was wrong. z compares two
+estimators applied to the *same* data, so it measures the gap between them,
+not either one's coverage; when both recover θ well the gap is far smaller
+than either posterior sd, and sd(z) < 1 follows. Calibration is what the SBC
+measures, and the SBC said these intervals were slightly under-covering, not
+over.)
 
 ### Population stage on the widened box
 
@@ -263,12 +268,72 @@ against 1.46 and 1.96 on the default box — both shifted by less than a third
 of their own posterior sd. Still no τ resolvable above the per-school
 uncertainty.
 
+## At 10⁷ on the corrected population (2026-09-23)
+
+Ten shards of 10⁶ on the sparse box (2 h 21 m), trained in 10 h 54 m
+(`data/m5c_shards/`, `npe_m5c.pt`, fits in `data/baerveldt_c/`).
+
+### Calibration (fresh 4,000 draws)
+
+![M5 network SBC ranks at 10⁷](figures/m5c_net_sbc_ranks_population.png)
+
+**No parameter's rank distribution is rejected** (smallest KS p 0.102, sameX;
+next 0.119, transTrip), mean ranks 0.494–0.507, 90 % coverage 0.889–0.904 and
+95 % 0.938–0.953 against a binomial se of 0.005. Set against the same test at
+10⁶ — five of eight rejected on the default box, six of eight on the sparse
+one — this is the clearest instance yet of the rule that a population is
+judged at 10⁷, and the fourth population on which it has held.
+
+| | KS rejections | 90 % coverage |
+|---|---|---|
+| 10⁶, default box | 5 of 8 | 0.886–0.899 |
+| 10⁶, sparse box | 6 of 8 | 0.873–0.905 |
+| **10⁷, sparse box** | **0 of 8** | **0.889–0.904** |
+
+### The schools at 10⁷
+
+All 19 schools have all eight parameters inside the 90 % interval
+(152 of 152), with a largest |z| of 1.47 anywhere in the study. The
+posteriors are 3–17 % narrower than at 10⁶ and now sit on RSiena's own
+standard errors:
+
+| parameter | our sd, 10⁶ | our sd, 10⁷ | RSiena se |
+|---|---|---|---|
+| rate | 1.060 | 1.068 | 1.011 |
+| density | 0.307 | 0.288 | 0.298 |
+| recip | 0.389 | 0.373 | 0.379 |
+| transTrip | 0.303 | 0.251 | 0.241 |
+| cycle3 | 0.490 | 0.452 | 0.446 |
+| sameX(g) | 0.293 | 0.285 | 0.260 |
+
+Two estimators that share no machinery, on nineteen real networks, agreeing
+both on where the parameters are and on how well they are determined.
+
+### Population stage at 10⁷
+
+| parameter | our μ [90 %] | `siena08` μ | our τ | `siena08` σ |
+|---|---|---|---|---|
+| rate | 5.16 [4.45, 5.91] | 5.56 | 1.54 | 1.65 |
+| density | −2.97 [−3.12, −2.82] | −2.89 | 0.25 | 0.25 |
+| recip | 2.48 [2.30, 2.66] | 2.27 | 0.32 | 0.18 |
+| transTrip | 0.94 [0.81, 1.10] | 0.82 | 0.24 | 0.13 |
+| cycle3 | −0.72 [−0.93, −0.53] | −0.60 | 0.27 | 0.17 |
+| altX(delinq) | −0.07 [−0.12, −0.01] | −0.06 | 0.08 | 0.07 |
+| egoX(delinq) | 0.00 [−0.08, 0.07] | 0.01 | 0.11 | 0.11 |
+| sameX(sex) | 0.53 [0.38, 0.69] | 0.52 | 0.29 | 0.20 |
+
+Still no τ whose 5th percentile clears the median per-school posterior sd:
+**more training does not buy resolution on between-school variation**, because
+that limit comes from the schools' size and the two-wave design, not from the
+estimator. This is the cleanest statement of the finding: the same estimator
+that now matches RSiena's precision per school still cannot say whether any
+mechanism differs between schools.
+
 ## Still to come
 
-- **The 10⁷ budget on both estimators, on the corrected (sparse-box)
-  population** — launched 2026-09-22 22:28 as `data/m5c.sh`, ten shards each,
-  about two days. This is what should tighten the conservative network
-  intervals and clear the remaining KS flags.
+- The 10⁷ co-evolution estimator on the same population (shards generating,
+  2026-09-23), then the delinquency selection/influence reads across the 19
+  schools at that budget.
 - The behaviour-side screen flags to understand: `x0_egoZ` below the 2nd
   percentile in schools 1, 9, 14, 15, 22 and `z0_z_sd` in 14, 18, 19, 22. The
   population's starting delinquency distributions are evidently narrower than
