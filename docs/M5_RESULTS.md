@@ -192,13 +192,83 @@ and influence are nearly independent (simZ × avAlt −0.04). The ridge that
 makes influence hard to pin down is a property of the model and the design,
 not of one dataset — nineteen further instances of it.
 
+## The widened box (2026-09-22 evening)
+
+The box above was the M1/M2 one, set on mid-density friendship networks. Five
+schools broke it. `--box sparse` (`SPARSE_RANGES`, `docs/PRIORS_M5.md`) widens
+density to U(−5, 0), transTrip to U(−0.5, 3) and cycle3 to U(−3.5, 0.5), on
+the argument that a network at mean degree 1 needs a larger closure
+coefficient to reproduce the same structure. Both estimators regenerated and
+retrained at 10⁶ (`npe_m5b.pt`, `npe_coev_m5b.pt`, screens `models/screen_m5b.npz`
+and `models/screen_coev_m5b.npz`, fits in `data/baerveldt_b/`).
+
+**Every box violation is gone.** All 19 schools now have all eight network
+parameters inside the 90 % interval (151 of 152 pairs), and the schools that
+failed before are unremarkable:
+
+| school | max \|z\|, default box | max \|z\|, sparse box |
+|---|---|---|
+| 4 | 4.13 | **1.32** |
+| 13 | 2.34 | **0.94** |
+| 16 | 1.91 | **0.73** |
+| 18 | 1.86 | **0.80** |
+| 20 | 2.30 | **0.68** |
+
+Co-evolution: 195 of 204 pairs inside (96 %, from 95 %), and its SBC is
+slightly *better* than the narrow box's (90 % coverage 0.886–0.902; KS
+rejects three of twelve).
+
+**What the widening costs, and where.** Posterior sds, averaged over the 19
+schools, sparse box relative to default:
+
+| parameter | network | co-evolution |
+|---|---|---|
+| transTrip | 1.52× | 1.45× |
+| cycle3 | 1.42× | 1.44× |
+| density | 1.18× | 1.22× |
+| rate, recip, covariate effects | 1.04–1.16× | 1.03–1.15× |
+| **simZ, avAlt, linear, quad** | — | **0.96–1.01×** |
+
+The cost falls on the three parameters that were widened and nowhere else. In
+particular **selection and influence are untouched**, so the substantive
+result below does not depend on the prior box — the best evidence available
+that it is not an artefact of it.
+
+Two caveats, both budget:
+
+1. On the network side the intervals are now *conservative*: 151 of 152 inside
+   a 90 % interval, with the z against RSiena's points spread 0.55 rather than
+   ≈ 1. Under the default box transTrip's posterior sd was 0.200 against
+   RSiena's own standard error of 0.241 — narrower than RSiena while being
+   truncated, i.e. confidently wrong; under the sparse box it is 0.303,
+   slightly wider than RSiena. The direction is right and the sharpness is a
+   budget question.
+2. The network SBC is worse than at the narrow box (KS rejects six of eight,
+   90 % coverage 0.873–0.905): the same 10⁶ panels now cover a larger
+   parameter volume. This is the argument for 10⁷ made concrete.
+
+### Population stage on the widened box
+
+| parameter | our μ | `siena08` μ | our τ | `siena08` σ |
+|---|---|---|---|---|
+| rate | 5.00 | 5.56 | 1.49 | 1.65 |
+| density | −3.07 | −2.89 | 0.27 | 0.25 |
+| recip | 2.52 | 2.27 | 0.30 | 0.18 |
+| transTrip | 0.93 | 0.82 | 0.17 | 0.13 |
+| cycle3 | −0.58 | −0.60 | 0.26 | 0.17 |
+| sameX(sex) | 0.51 | 0.52 | 0.31 | 0.20 |
+
+Co-evolution: selection 1.35 [0.92, 1.77] and influence 2.21 [1.78, 2.63],
+against 1.46 and 1.96 on the default box — both shifted by less than a third
+of their own posterior sd. Still no τ resolvable above the per-school
+uncertainty.
+
 ## Still to come
 
-- The 10⁷ budget on both estimators, per the rule that a new population is not
-  judged at 10⁶.
-- A widened box for sparse networks (above): it affects both estimators, and
-  on the co-evolution side the face warning fires on avAlt in six schools and
-  transTrip/cycle3 in the same sparse ones as before.
+- **The 10⁷ budget on both estimators, on the corrected (sparse-box)
+  population** — launched 2026-09-22 22:28 as `data/m5c.sh`, ten shards each,
+  about two days. This is what should tighten the conservative network
+  intervals and clear the remaining KS flags.
 - The behaviour-side screen flags to understand: `x0_egoZ` below the 2nd
   percentile in schools 1, 9, 14, 15, 22 and `z0_z_sd` in 14, 18, 19, 22. The
   population's starting delinquency distributions are evidently narrower than
