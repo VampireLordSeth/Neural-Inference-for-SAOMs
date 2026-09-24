@@ -329,11 +329,77 @@ estimator. This is the cleanest statement of the finding: the same estimator
 that now matches RSiena's precision per school still cannot say whether any
 mechanism differs between schools.
 
+### The co-evolution estimator at 10⁷
+
+Ten shards (3 h 22 m), trained in 20 h 40 m — twice the network model's, for
+12 parameters and 41 summaries. `npe_coev_m5c.pt`, fits in `data/baerveldt_c/`.
+
+![M5 co-evolution SBC ranks at 10⁷](figures/m5c_coev_sbc_ranks_population.png)
+
+**Coverage within 1.0 point of nominal on all twelve** (90 %: 0.890–0.906;
+95 %: 0.938–0.952). KS rejects one of twelve — quad at 0.004, mean rank 0.514
+— against three of twelve at 10⁶.
+
+Against RSiena on the 17 schools where its co-evolution fit converges, **203
+of 204 pairs inside the 90 % interval**. The fairer comparison, which
+accounts for RSiena's own standard error as well as our posterior width, puts
+**204 of 204 within 1.645 combined standard deviations, largest 1.52**:
+
+| | vs RSiena's point alone | with RSiena's se included |
+|---|---|---|
+| 10⁶ sparse box | 96 % | 99 %, max 2.12 |
+| **10⁷ sparse box** | **99 %** | **100 %, max 1.52** |
+
+School 9 is the instructive case for why the combined comparison is the right
+one: RSiena's behaviour estimates there are essentially unidentified (avAlt
+4.55 ± 6.54, quad −1.59 ± 2.06, simZ 4.13 ± 3.31), so a posterior interval
+that excludes its point estimate says nothing. Our posterior on the same
+school is an order of magnitude tighter and inside the combined bound.
+
+**Where the amortized posterior is sharper than RSiena**, averaged over the
+17 schools:
+
+| parameter | our sd | RSiena se | ratio |
+|---|---|---|---|
+| avAlt (influence) | 1.17 | 1.83 | **0.64** |
+| quad | 0.31 | 0.47 | **0.66** |
+| linear | 0.34 | 0.41 | 0.83 |
+| simZ (selection) | 1.06 | 1.25 | 0.85 |
+| structural block | — | — | 0.95–1.07 |
+| egoZ, altZ, rate_beh | — | — | 1.14–1.18 |
+
+On the structural parameters the two methods are within a few per cent. On
+the *behaviour* parameters — the ones the study is about — the amortized
+posterior is a third narrower, because the method of moments has to estimate
+them from two waves of a five-point scale by stochastic approximation while
+the flow has seen ten million panels of the same design.
+
+### Population stage at 10⁷ (co-evolution)
+
+| | μ [90 %] | τ | s_med | resolved |
+|---|---|---|---|---|
+| selection (simZ) | **1.40 [1.00, 1.79]** | 0.26 | 1.06 | no |
+| influence (avAlt) | **1.76 [1.28, 2.24]** | 0.58 | 1.15 | no |
+| quad | −0.52 [−0.64, −0.41] | 0.10 | 0.31 | no |
+| behaviour rate | 1.45 [1.23, 1.69] | 0.24 | 0.52 | no |
+| network rate | 5.03 [4.31, 5.79] | 1.63 | 1.02 | **yes** |
+
+Selection 1.40 and influence 1.76 against 1.46/1.96 at 10⁶ on the default box
+and 1.35/2.21 on the sparse box at 10⁶: three estimators, two prior boxes and
+two budgets, all within a third of a posterior sd of each other. Both
+mechanisms are clearly positive across the 19 schools.
+
+The network rate is the only parameter whose between-school variation clears
+the per-school uncertainty, at every budget and box we have tried. **How fast
+a network changes differs between schools; how strongly its actors select and
+influence cannot be shown to.**
+
 ## Still to come
 
-- The 10⁷ co-evolution estimator on the same population (shards generating,
-  2026-09-23), then the delinquency selection/influence reads across the 19
-  schools at that budget.
+- A sienaBayes comparison, a summary-set ablation and sienaGOF-style network
+  predictive checks (`recommendations for the paper.md`).
+- Knecht klas12b is read by the three-wave M4 estimators (`docs/M4_RESULTS.md`);
+  a wave-generic summary vector would let one estimator read both.
 - The behaviour-side screen flags to understand: `x0_egoZ` below the 2nd
   percentile in schools 1, 9, 14, 15, 22 and `z0_z_sd` in 14, 18, 19, 22. The
   population's starting delinquency distributions are evidently narrower than
