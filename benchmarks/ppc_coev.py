@@ -101,17 +101,38 @@ def simulate(theta, X0, z0, spec, rng, backend, B):
     return out
 
 
+# panel -> (network CSVs, behaviour CSV, RSiena MoM json, ML json, behaviour label in RSiena)
+REAL = {
+    "s50": (
+        [HERE / f"s50{w}.csv" for w in (1, 2, 3)],
+        HERE / "s50a.csv",
+        HERE / "rsiena_coevolution_estimate.json",
+        HERE / "rsiena_coevolution_maxlike.json",
+        "alc",
+    ),
+    "glasgow": (
+        [HERE / "glasgow" / f"glasgow_net{w}.csv" for w in (1, 2, 3)],
+        HERE / "glasgow" / "glasgow_alcohol.csv",
+        HERE / "glasgow" / "rsiena_coevolution.json",
+        HERE / "glasgow" / "rsiena_coevolution_maxlike.json",
+        "alcB",
+    ),
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--posterior", default="data/npe_coev3_10m_c_posterior_s50.npz")
+    ap.add_argument("--real", default="s50", choices=list(REAL))
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--backend", default="numpy")
     ap.add_argument("--seed", type=int, default=11)
     a = ap.parse_args()
     rng = np.random.default_rng(a.seed)
 
-    Xs = [np.loadtxt(HERE / f"s50{w}.csv", delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
-    Z = np.loadtxt(HERE / "s50a.csv", delimiter=",")
+    net_paths, z_path, mom_path, ml_path, beh_lab = REAL[a.real]
+    Xs = [np.loadtxt(p, delimiter=",", dtype=np.int8) for p in net_paths]
+    Z = np.loadtxt(z_path, delimiter=",")
     sp = spec_from_data(Z, 1, 5)
     spec = BehaviourSpec(1, 5, np.full(a.B, sp.zbar), np.full(a.B, sp.sim_mean))
     bmodel = beh_model()
@@ -126,15 +147,15 @@ def main():
     points = {
         "amortized draws": smp[rng.choice(len(smp), a.B, replace=False)],
         "amortized mean": np.broadcast_to(smp.mean(0), (a.B, 14)),
-        "RSiena MoM": np.broadcast_to(
-            rsiena_point(HERE / "rsiena_coevolution_estimate.json"), (a.B, 14)
-        ),
+        "RSiena MoM": np.broadcast_to(rsiena_point(mom_path, beh_lab), (a.B, 14)),
     }
-    ml = HERE / "rsiena_coevolution_maxlike.json"
-    if ml.exists():
-        points["RSiena ML"] = np.broadcast_to(rsiena_point(ml), (a.B, 14))
+    if ml_path.exists():
+        points["RSiena ML"] = np.broadcast_to(rsiena_point(ml_path, beh_lab), (a.B, 14))
 
-    print(f"posterior predictive check, s50 x alcohol, {a.B} simulations per point\n")
+    print(
+        f"posterior predictive check, {a.real} x behaviour, n = {Xs[0].shape[0]}, "
+        f"{a.B} simulations per point\n"
+    )
     for label, theta in points.items():
         stats = simulate(np.ascontiguousarray(theta), Xs[0], Z[:, 0], spec, rng, a.backend, a.B)
         print(f"== {label}")

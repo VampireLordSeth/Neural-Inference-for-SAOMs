@@ -593,10 +593,46 @@ whole ridge and its width. They disagree because the data do not determine a
 point on that ridge, which is the substantive finding, not a defect in any of
 the three.
 
-What would settle *which* point is right is a posterior predictive check on
-Glasgow's behaviour statistics under each of the three (`benchmarks/ppc_coev.py`,
-which did this for s50 and could not separate them there). That is the next
-co-evolution item.
+### The posterior predictive check does separate them, on Glasgow
 
-Next: Glasgow PPC for the selection/influence/quad triple; Knecht classrooms
-with `fit.py`; sparse simulator for n > 500.
+`benchmarks/ppc_coev.py --real glasgow` (generalised from s50 to any panel):
+2,000 simulations of both Glasgow periods from the observed wave 1 under each
+of four points, comparing seven behaviour statistics per period with their
+predictive distributions. Output in `data/glasgow_ppc.txt`; `F(obs)` is the
+predictive quantile of the observation.
+
+| point | avAlt, period 1 | avAlt, period 2 | flagged |
+|---|---|---|---|
+| amortized draws | 36.4 vs 52.9 (**0.14**) | 59.2 vs 73.9 (0.37) | none |
+| amortized mean | 36.4 vs 52.8 (**0.09**) | 59.2 vs 66.2 (0.39) | none |
+| RSiena MoM | 36.4 vs 38.6 (0.44) | 59.2 vs 50.5 (0.73) | none |
+| **RSiena ML** | 36.4 vs 24.4 (**0.91**) | 59.2 vs **26.4 (1.00)** | **avAlt/p2** |
+
+**The ML point cannot reproduce the observed influence statistic.** In period
+two the observed avAlt target (59.2) exceeds *every one of 2,000* simulated
+values from the ML estimate, whose predictive mean is 26.4; period one is at
+the 0.91 quantile. On s50 the same check could not separate the three points
+(`docs/M3_RESULTS.md`); Glasgow, 2.6× larger, can, and it rules the ML point
+out.
+
+Two cautions on reading this. First, **MoM matches the linear, quad and avAlt
+targets by construction** — they are its moment conditions — so its excellent
+quantiles on those three are not independent evidence. The informative
+comparisons are against the four statistics no estimator targets (change
+count, behaviour mean and sd, friend similarity), where all three points are
+acceptable (F between 0.15 and 0.93), and between ML and the posterior, which
+target nothing. Second, the amortized posterior leans the *other* way: at
+F = 0.09–0.14 in period one the observation sits low in its predictive
+distribution, i.e. the posterior expects somewhat more influence-driven change
+than Glasgow shows. It is not flagged, but the direction is consistent with
+its higher avAlt.
+
+So the ridge has an orientation after all: moving along it away from MoM
+toward *lower* influence breaks the fit badly, and toward *higher* influence
+degrades it mildly. The data prefer the middle and exclude the low end. The
+amortized posterior's 90 % interval [1.50, 3.90] contains neither the ML
+point (0.40) nor, at its lower edge, MoM's (1.34) — that remains the honest
+open discrepancy, but it is now a disagreement about how much influence there
+is, not about whether the ML answer is admissible.
+
+Next: Knecht classrooms with `fit.py`; sparse simulator for n > 500.
