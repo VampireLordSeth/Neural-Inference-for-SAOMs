@@ -394,6 +394,51 @@ the per-school uncertainty, at every budget and box we have tried. **How fast
 a network changes differs between schools; how strongly its actors select and
 influence cannot be shown to.**
 
+## Do the extra summaries earn their place? (2026-09-25)
+
+The conditioning vector holds two kinds of thing: the statistics the method of
+moments matches — the change count and each effect's end-wave target — and
+descriptors no estimator targets (degree spreads, isolates, mutual dyads, tie
+fraction, at both waves). `--summaries mom` keeps the first kind plus what
+identifies the panel (n, covariate shape, the start network's model
+statistics): 19 of 29 numbers. Retrained on the same 10⁷ shards, same
+settings, same SBC (`data/npe_m5c_mom.pt`, fits in `data/baerveldt_mom/`).
+
+| | full (29) | mom (19) |
+|---|---|---|
+| training time | 10 h 54 m | **14 h 54 m** |
+| KS rejections, 4,000 draws | **0 of 8** | 2 of 8 (recip 0.006, cycle3 0.009) |
+| 90 % coverage | 0.889–0.904 | 0.888–0.904 |
+| mean posterior sd over 19 schools | 1.000 | **0.978** |
+| schools inside the 90 % interval | 152/152 | 152/152 |
+
+**The ten extra descriptors do not sharpen anything.** Averaged over the 19
+schools the mom-conditioned posteriors are 2 % *narrower*, not wider, and per
+parameter the ratio runs 0.96–1.02 — a spread we cannot distinguish from
+run-to-run variation in flow training, which we have not measured. Both sets
+agree with RSiena on every one of the 152 school-parameter pairs, and both
+sit on RSiena's standard errors.
+
+So the moment conditions are sufficient conditioning for a calibrated and
+sharp posterior in a *population* setting, not only at a fixed start network
+where the result was first reported (Maltsev 2026, §5.2). That is worth
+saying, because the population case is where one might have expected the
+extra structure to matter: the estimator has to work out which network it is
+looking at before it can say anything about θ, and the x₀ model statistics
+alone evidently suffice for that.
+
+**What the extra summaries do buy is an easier learning problem.** The full
+set trained in 11 hours and left no rank distribution rejected; the reduced
+set took 15 hours — 37 % longer — and still ends with two KS flags at
+mean-rank tilts of 0.011–0.012. With more information per panel the flow finds
+the mapping sooner and more cleanly. That is a claim about optimisation, not
+about the posterior, and it is the opposite of the trade-off one might assume.
+
+**Practical reading.** An analyst who can only compute the moment statistics
+loses nothing that matters. An analyst who can compute more should, because
+the training run converges better for the same budget — which is the resource
+that is actually scarce.
+
 ## Still to come
 
 - A sienaBayes comparison, a summary-set ablation and sienaGOF-style network

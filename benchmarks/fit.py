@@ -135,6 +135,10 @@ def main():
     ap.add_argument("--screen", help="override the screening reference (.npz)")
     ap.add_argument("--no-screen", action="store_true")
     ap.add_argument(
+        "--summaries", default="full", choices=["full", "mom"],
+        help="conditioning set the estimator was trained on (network model only)"
+    )
+    ap.add_argument(
         "--rsiena", help="RSiena fit JSON (as written by the R scripts here) to compare"
     )
     ap.add_argument(
@@ -183,7 +187,12 @@ def main():
         kind = "network"
         if not (a.v and a.g):
             raise SystemExit("network-only model needs --v and --g (or pass --behaviour)")
-        from saomsim.population import m2_summary_names, real_data_summary, transform_m2
+        from saomsim.population import (
+            m2_summary_names,
+            real_data_summary,
+            summary_subset,
+            transform_m2,
+        )
 
         v = load_matrix(a.v).reshape(-1)
         graw = np.loadtxt(a.g, delimiter=",", dtype=str, ndmin=1).reshape(-1)
@@ -194,7 +203,7 @@ def main():
         S, model = real_data_summary(Xs[0], Xs[1:], v, g)
         S = np.asarray(S).reshape(-1)
         names = m2_summary_names(model, waves)
-        x = transform_m2(S[None], names, model)
+        x = transform_m2(S[None], names, model)[:, summary_subset(names, a.summaries)]
         consts = f"v centred (sd {v.std(ddof=1):.3f}), g {len(set(g))} categories"
 
     post_path = Path(a.posterior) if a.posterior else first_existing(MODELS[kind]["posterior"])
