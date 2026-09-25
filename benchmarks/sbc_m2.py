@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table, sbc_ranks_chunked  # noqa: E402
 from benchmarks.m2 import m2_prior  # noqa: E402
-from saomsim.population import generate_m2, m2_model, sample_covariates, transform_m2  # noqa: E402
+from saomsim.population import generate_m2, m2_model, sample_covariates, summary_subset, transform_m2  # noqa: E402
 
 
 def main():
@@ -39,6 +39,7 @@ def main():
     ap.add_argument("--n-max", type=int, default=80)
     ap.add_argument("--start", default="m2", choices=["m2", "sparse", "survey"], help="start-network regime")
     ap.add_argument("--box", default="default", choices=["default", "sparse"], help="effect prior box")
+    ap.add_argument("--summaries", default="full", choices=["full", "mom"])
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -69,7 +70,7 @@ def main():
         flush=True,
     )
     model = m2_model(sample_covariates(1, 20, rng))
-    X = transform_m2(ts.summary, ts.summary_names, model)
+    X = transform_m2(ts.summary, ts.summary_names, model)[:, summary_subset(ts.summary_names, args.summaries)]
 
     posterior = torch.load(args.posterior, weights_only=False)
     thetas = torch.as_tensor(ts.theta, dtype=torch.float32, device=device)

@@ -23,7 +23,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table  # noqa: E402
 from benchmarks.m2 import glasgow_as_m2, m2_prior, s50_as_m2  # noqa: E402
-from saomsim.population import load_m2_summaries, transform_m2  # noqa: E402
+from saomsim.population import (  # noqa: E402
+    load_m2_summaries,
+    summary_subset,
+    transform_m2,
+)
 from saomsim.prior import BoxPrior  # noqa: E402
 
 
@@ -43,6 +47,10 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--rate-max", type=float, default=None, help="upper rate prior (default 12)")
     ap.add_argument("--real", default="s50", choices=["s50", "glasgow"])
+    ap.add_argument(
+        "--summaries", default="full", choices=["full", "mom"],
+        help="conditioning set: all summaries, or only the MoM targets plus x0 and n"
+    )
     args = ap.parse_args()
 
     from sbi.analysis import sbc_rank_plot
@@ -83,7 +91,9 @@ def main():
         )
     N = ts.theta.shape[0]
     x0, x1, v, g, s_obs, model = (s50_as_m2 if args.real == "s50" else glasgow_as_m2)(waves)
-    X = transform_m2(ts.summary, ts.summary_names, model)
+    keep = summary_subset(ts.summary_names, args.summaries)
+    X = transform_m2(ts.summary, ts.summary_names, model)[:, keep]
+    log(f"summaries: {args.summaries} ({len(keep)} of {len(ts.summary_names)})")
     # random hold-out: consecutive rows share one n (one n per chunk), so a tail
     # split would test a single network size
     perm = np.random.default_rng(args.seed).permutation(N)
@@ -179,7 +189,7 @@ def main():
 
     # ------------------------------------------------------- s50: real start
     x_obs = torch.as_tensor(
-        transform_m2(s_obs, ts.summary_names, model), dtype=torch.float32, device=device
+        transform_m2(s_obs, ts.summary_names, model)[:, keep], dtype=torch.float32, device=device
     )
     t0 = time.perf_counter()
     samples = posterior.sample((20_000,), x=x_obs, show_progress_bars=False).cpu().numpy()

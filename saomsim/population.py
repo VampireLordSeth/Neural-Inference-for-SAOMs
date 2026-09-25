@@ -186,6 +186,29 @@ def transform_m2(S: np.ndarray, names: list, model: Model) -> np.ndarray:
     return out
 
 
+# Summary subsets for the ablation (docs/M5_RESULTS.md). "mom" keeps exactly what the
+# method of moments uses — the change count and each effect's target statistic at every
+# later wave — plus what the estimator needs to know which panel it is looking at: n, the
+# covariate shape, and the start network's model statistics. "full" adds the descriptors
+# that no estimator targets: degree spreads, isolates, mutual dyads and tie fraction, at
+# every wave.
+EXTRA_DESCRIPTORS = ("outdeg_sd", "indeg_sd", "isolates", "mutual_dyads", "tie_fraction")
+
+
+def summary_subset(names, which: str = "full") -> list[int]:
+    """Column indices of ``names`` kept by subset ``which`` ("full" or "mom")."""
+    if which == "full":
+        return list(range(len(names)))
+    if which != "mom":
+        raise ValueError(f"unknown summary subset {which!r}")
+    drop = {
+        nm
+        for nm in names
+        if nm.startswith("x") and nm.split("_", 1)[1] in EXTRA_DESCRIPTORS
+    }
+    return [i for i, nm in enumerate(names) if nm not in drop]
+
+
 # ---------------------------------------------------------------- training set
 
 
