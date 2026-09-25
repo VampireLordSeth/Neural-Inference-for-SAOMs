@@ -535,5 +535,68 @@ at step 2. Fifth estimator, same pair to within 0.3 sd. simZ 1.99 ± 0.74
    place the truth. That is the next co-evolution item, ahead of any further
    population change.
 
-Next: Glasgow ML fit and PPC for the selection/influence/quad triple; Knecht
-classrooms with `fit.py`; sparse simulator for n > 500.
+## The Glasgow maximum-likelihood fit (2026-09-24)
+
+`benchmarks/glasgow/rsiena_coevolution_maxlike.R`: the same 14-parameter model
+fitted by likelihood (MCMC) instead of the method of moments, started from the
+MoM estimate. **76.4 hours on one core** (four `siena07` runs of 19.3, 19.4,
+18.9 and 18.9 h), `n3 = 3000`, `mult = 5`. Result in
+`benchmarks/glasgow/rsiena_coevolution_maxlike.json`, log `data/glasgow_maxlike.log`.
+
+**Convergence.** The overall ratio went 0.507 → 0.584 → 0.590 → **0.710**
+across the four runs, never meeting RSiena's 0.25 guideline and drifting
+upward; per-parameter t-ratios in the final run are ≤ 0.54 (density), all
+others ≤ 0.42. Two standard errors came back `NA` in run 3, i.e. the
+covariance estimate is losing positive-definiteness as the chains lengthen.
+The point estimate, on the other hand, is extremely stable: across the four
+runs selection moved 0.838 → 0.847 → 0.909 → 0.909, influence 0.438 → 0.405 →
+0.407 → 0.401 and curvature −0.358 → −0.342 → −0.349 → −0.354. We therefore
+report the ML point as **stable but not certified**, the same status as the
+s50 ML fit (`docs/M3_RESULTS.md`), and note that `siena07`'s ML mode at
+n = 129 is at the edge of its practical range.
+
+**Three estimators on the same panel** (amortized = the 10⁷ step-3 estimator;
+z compares ML with the posterior using both uncertainties):
+
+| parameter | MoM | **ML** | amortized 10⁷ | z |
+|---|---|---|---|---|
+| rate_net₁ | 10.57 ± 0.90 | 9.91 ± 0.88 | 9.18 ± 0.88 | 0.59 |
+| rate_net₂ | 8.58 ± 0.80 | 8.82 ± 0.77 | 7.97 ± 0.89 | 0.72 |
+| density | −2.77 ± 0.05 | −2.83 ± 0.05 | −2.83 ± 0.09 | −0.02 |
+| recip | 2.42 ± 0.11 | 2.27 ± 0.10 | 2.36 ± 0.13 | −0.54 |
+| transTrip | 0.67 ± 0.05 | 0.71 ± 0.04 | 0.60 ± 0.06 | 1.44 |
+| cycle3 | −0.51 ± 0.09 | −0.36 ± 0.08 | −0.44 ± 0.12 | 0.58 |
+| egoZ | 0.01 ± 0.05 | −0.08 ± 0.04 | −0.07 ± 0.09 | −0.03 |
+| altZ | 0.06 ± 0.05 | 0.10 ± 0.04 | −0.01 ± 0.10 | 0.98 |
+| **simZ (selection)** | 1.16 ± 0.32 | **0.91 ± 0.22** | 2.08 ± 0.52 | **−2.09** |
+| linear | 0.44 ± 0.14 | 0.40 ± 0.10 | 0.44 ± 0.19 | −0.21 |
+| **quad** | −0.56 ± 0.19 | **−0.35 ± 0.08** | −1.05 ± 0.27 | **2.47** |
+| **avAlt (influence)** | 1.34 ± 0.59 | **0.40 ± 0.21** | 2.82 ± 0.75 | **−3.09** |
+
+- **On eleven of fourteen parameters ML and the amortized posterior agree**
+  within 1.5 combined sd, and on the whole structural block within 1.0. The
+  posterior's density read (−2.83) is ML's to two decimals, where MoM sits at
+  −2.77.
+- **On the influence/curvature/selection triple, ML lands on the far side of
+  MoM from the posterior**, exactly as on s50: there ML gave avAlt 0.33 against
+  MoM 1.33 and our 2.72; here 0.40 against 1.34 and 2.82. Two panels, 2.6×
+  apart in size, produce the same ordering and nearly the same numbers.
+
+**What this settles.** The offset reported since 2026-09-18 is not a property
+of one dataset, one estimator or one training budget: three estimators lie
+along a single ridge in (avAlt, quad) — the direction in which the joint
+posterior has correlation −0.93 on both panels and −0.63 in every one of the
+19 Baerveldt schools (`docs/M5_RESULTS.md`). MoM matches the target statistics
+by construction; ML maximises a likelihood it cannot evaluate exactly and
+whose convergence it cannot certify here; the amortized posterior reports the
+whole ridge and its width. They disagree because the data do not determine a
+point on that ridge, which is the substantive finding, not a defect in any of
+the three.
+
+What would settle *which* point is right is a posterior predictive check on
+Glasgow's behaviour statistics under each of the three (`benchmarks/ppc_coev.py`,
+which did this for s50 and could not separate them there). That is the next
+co-evolution item.
+
+Next: Glasgow PPC for the selection/influence/quad triple; Knecht classrooms
+with `fit.py`; sparse simulator for n > 500.
