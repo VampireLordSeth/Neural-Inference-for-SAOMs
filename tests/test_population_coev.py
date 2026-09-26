@@ -5,6 +5,7 @@ import pytest
 
 from saomsim.behaviour import BehaviourSpec
 from saomsim.population import N_MAX, unpack
+from conftest import requires_s50
 from saomsim.population_coev import (
     BEH_EFFECTS,
     NET_EFFECTS,
@@ -105,6 +106,7 @@ def test_homophilous_starts_carry_behaviour_alignment():
         generate_coev(prior, 8, np.random.default_rng(0), start="nope", **kw)
 
 
+@requires_s50
 def test_real_coev_summary_uses_rsiena_constants():
     Xs = [np.loadtxt(f"benchmarks/s50{w}.csv", delimiter=",", dtype=np.int8) for w in (1, 2, 3)]
     Z = np.loadtxt("benchmarks/s50a.csv", delimiter=",")

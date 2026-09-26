@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from conftest import to_np
+from conftest import requires_s50, to_np
 from saomsim import Model, random_network
 from saomsim import reference as ref
 from saomsim.backend import NUMPY
@@ -32,6 +32,7 @@ def case(B=6, n=9, seed=0):
     return rng, X, z, spec
 
 
+@requires_s50
 def test_spec_from_data_matches_rsiena_constants():
     Z = np.loadtxt("benchmarks/s50a.csv", delimiter=",")
     spec = spec_from_data(Z, 1, 5)

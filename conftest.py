@@ -8,6 +8,7 @@ torch when importable. Environment knobs for the torch backend:
 """
 
 import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -35,6 +36,21 @@ def _backends():
 @pytest.fixture(params=_backends())
 def backend(request):
     return NUMPY if request.param == "numpy" else request.param
+
+
+S50_FILES = ("s501.csv", "s502.csv", "s503.csv", "s50a.csv", "s50_covariates.csv")
+NEED_S50 = (
+    "the s50 data are not redistributed here; run `python benchmarks/fetch_data.py s50` "
+    "(needs R with RSiena installed)"
+)
+
+
+def s50_available() -> bool:
+    d = Path(__file__).parent / "benchmarks"
+    return all((d / f).exists() for f in S50_FILES)
+
+
+requires_s50 = pytest.mark.skipif(not s50_available(), reason=NEED_S50)
 
 
 def to_np(backend, a):

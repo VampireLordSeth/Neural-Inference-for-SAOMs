@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import requires_s50
 from saomsim.behaviour import BehaviourModel, behaviour_rate_statistic, spec_from_data
 
 HERE = Path(__file__).parent
@@ -39,6 +40,7 @@ def test_constants(data):
 
 
 @pytest.mark.parametrize("period", [0, 1])
+@requires_s50
 def test_targets_match_rsiena(data, period):
     X, Z, J = data
     spec = spec_from_data(Z, 1, 5)
@@ -61,6 +63,7 @@ def test_targets_match_rsiena(data, period):
 DYN_FILES = ["s501.csv", "s50a.csv", "rsiena_coevolution_sims.csv", "rsiena_coevolution_sims.json"]
 
 
+@requires_s50
 def test_joint_dynamics_match_rsiena(backend):
     """M3b gate, part 2: the joint network-behaviour simulator reproduces RSiena's
     simulated statistic distribution at fixed theta (s501 + alcohol wave 1 start).
