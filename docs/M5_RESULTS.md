@@ -342,15 +342,27 @@ Ten shards (3 h 22 m), trained in 20 h 40 m — twice the network model's, for
 95 %: 0.938–0.952). KS rejects one of twelve — quad at 0.004, mean rank 0.514
 — against three of twelve at 10⁶.
 
-Against RSiena on the 17 schools where its co-evolution fit converges, **203
+Against RSiena on the 17 schools where its co-evolution fit converges, **200
 of 204 pairs inside the 90 % interval**. The fairer comparison, which
 accounts for RSiena's own standard error as well as our posterior width, puts
 **204 of 204 within 1.645 combined standard deviations, largest 1.52**:
 
 | | vs RSiena's point alone | with RSiena's se included |
 |---|---|---|
-| 10⁶ sparse box | 96 % | 99 %, max 2.12 |
-| **10⁷ sparse box** | **99 %** | **100 %, max 1.52** |
+| 10⁶ default box | 192 of 204 (94 %) | 201 of 204 |
+| 10⁶ sparse box | 196 of 204 (96 %) | 201 of 204, max 2.12 |
+| **10⁷ sparse box** | **200 of 204 (98 %)** | **204 of 204, max 1.52** |
+
+> **Corrected 2026-09-26.** This paragraph said "203 of 204" and the table said
+> 99 %. Neither is reproducible from any of the three saved posterior sets, which
+> give 192, 196 and 200; the 10⁶ sparse figure of 96 % does reproduce exactly, so
+> the error is confined to the 10⁷ row. The four pairs outside are class 9's
+> `simZ`, `quad` and `avAlt` — the three the paragraph below calls essentially
+> unidentified, with RSiena standard errors of 3.3, 2.1 and 6.5 — and class 18's
+> `simZ`. All four are comfortably inside once RSiena's own error is counted, the
+> largest combined |z| among them being 1.13, which is why the 204 of 204 figure
+> is unaffected. Recomputed by `benchmarks/paper_tables.py --model coev`, which
+> exists so that these counts are regenerated rather than transcribed.
 
 School 9 is the instructive case for why the combined comparison is the right
 one: RSiena's behaviour estimates there are essentially unidentified (avAlt

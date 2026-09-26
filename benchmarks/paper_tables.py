@@ -16,6 +16,14 @@ documents have not always been explicit about which one is in use:
 
 The two differ by about a third here (largest 1.47 against 1.08), so quoting one while
 computing the other would misstate the agreement in either direction.
+
+Regenerating rather than transcribing these counts is the point of the script, and it
+earned that on the first run: ``docs/M5_RESULTS.md`` had recorded 203 of 204 co-evolution
+pairs inside the 90 % interval, a figure not reproducible from any of the three saved
+posterior sets, which give 192, 196 and 200. The document has been corrected to 200. The
+four pairs outside are class 9's ``simZ``, ``quad`` and ``avAlt`` -- the three whose
+RSiena standard errors are 3.3, 2.1 and 6.5, so essentially unidentified -- and class
+18's ``simZ``; all four sit inside once RSiena's own error is counted.
 """
 
 import argparse
