@@ -44,8 +44,18 @@ whole panel.
 | triad census | 0.092 | 0.106 |
 | geodesic | 0.479 | 0.066 |
 
-**Nothing is rejected.** The canonical effect set, fitted amortized, reproduces degree
-distributions, triad counts and path lengths it never saw.
+**Nothing is rejected**, but the second period's geodesic distribution is on the line and
+should not be reported as a clean pass. Re-running at three seeds with 2,000 simulations
+gives p = 0.066, 0.057 and 0.045, straddling the threshold. What is stable across those
+runs is the deviation pattern, identical to three figures each time: d = 5 at −2.4 sd,
+d = 4 at −2.3, unreachable pairs at +2.1. As with the rank-calibration p-values in
+`docs/MULTIWAVE.md`, **read the standardised deviations and treat a p-value near the
+threshold as the random variable it is.**
+
+That matters for the comparison with Glasgow below, and it strengthens rather than
+weakens it: the *same* misfit, in the same direction, is present in s50 — it is simply
+not resolvable at n = 50. The difference between the two panels is statistical power, not
+a difference in kind.
 
 ### The comparison that makes this interpretable
 

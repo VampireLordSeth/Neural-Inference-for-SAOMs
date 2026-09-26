@@ -182,6 +182,13 @@ saom-fit --waves w1.csv w2.csv w3.csv --behaviour z.csv \
          --posterior npe_coev_m5c.pt                 # network x behaviour
 ```
 
+Having fitted it, check whether the model actually reproduces the data on
+statistics it never targeted:
+
+```bash
+saom-gof --waves w1.csv w2.csv w3.csv --v v.csv --g g.csv --posterior npe_m5c.pt
+```
+
 A SAOM's likelihood factorises over periods and our priors are flat on a box, so
 the per-period posteriors multiply to the joint one; the estimator is applied
 once per period and the product is sampled. One rate comes back per period, the

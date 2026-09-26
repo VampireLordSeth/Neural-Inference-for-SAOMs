@@ -29,6 +29,8 @@ dev = ["pytest>=7", "pytest-xdist", "ruff", "networkx>=3", "scipy>=1.10"]
 [project.scripts]
 # Read a panel of any number of waves with a trained two-wave estimator.
 saom-fit = "saomsim.cli:main"
+# Check whether the fitted model reproduces statistics it never targeted.
+saom-gof = "saomsim.cli:main_gof"
 
 [project.urls]
 Homepage = "https://github.com/VampireLordSeth/Neural-Inference-for-SAOMs"

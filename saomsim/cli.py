@@ -239,3 +239,124 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# --------------------------------------------------------------- goodness of fit
+
+
+def main_gof(argv=None):
+    """``saom-gof``: does the fitted model reproduce statistics it never targeted?
+
+        saom-gof --waves w1.csv w2.csv w3.csv --v v.csv --g g.csv \
+                 --posterior npe_m5c.pt
+
+    Agreement with another estimator says the two recover the same parameters. It says
+    nothing about whether the *model* reproduces the data, and on one of the panels in
+    this project it does not: the canonical effect set cannot match the out-degree
+    distribution of a nomination-limited survey, which the check below detects and no
+    amount of agreement with RSiena would have revealed (``docs/GOF_RESULTS.md``).
+
+    Each period is simulated from its observed start under draws from the posterior, and
+    the observed end network is compared with the simulated ones on the out- and
+    in-degree distributions, the triad census and the distribution of geodesic distances
+    -- none of which the estimator conditions on. Each vector is judged as a whole by the
+    Mahalanobis distance of the observation from the simulated cloud.
+
+    Simulating under posterior *draws* rather than a point estimate matters: conditioning
+    on any single theta discards the uncertainty the data leave, giving a predictive
+    distribution that is too narrow and a check that over-rejects.
+    """
+    ap = argparse.ArgumentParser(
+        description=main_gof.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument("--waves", nargs="+", required=True, help="adjacency CSVs in time order")
+    ap.add_argument("--posterior", required=True, help="trained two-wave estimator (.pt)")
+    ap.add_argument("--v", required=True, help="numeric actor covariate CSV")
+    ap.add_argument("--g", required=True, help="categorical actor covariate CSV")
+    ap.add_argument("--B", type=int, default=1000, help="simulations per period")
+    ap.add_argument("--proposal", type=int, default=200000)
+    ap.add_argument("--seed", type=int, default=3)
+    ap.add_argument(
+        "--cap", type=int, default=0,
+        help="truncate each simulated actor to this many out-ties before the statistics, "
+             "as a nomination-limited questionnaire would"
+    )
+    a = ap.parse_args(argv)
+
+    from saomsim import simulate_period
+    from saomsim.gof import TRIAD_TYPES, auxiliary, mahalanobis_test
+    from saomsim.population import cap_outdegree, m2_model
+    from saomsim.product import combine, load_posterior, require_torch
+
+    try:
+        require_torch()
+    except ModuleNotFoundError as e:  # pragma: no cover - depends on the install
+        raise SystemExit(str(e)) from e
+
+    labels = {
+        "outdegree": [f"out {k}" for k in range(8)] + ["out 8+"],
+        "indegree": [f"in {k}" for k in range(8)] + ["in 8+"],
+        "triad census": TRIAD_TYPES,
+        "geodesic": ["d=1", "d=2", "d=3", "d=4", "d=5", "d>5 or inf"],
+    }
+    rng = np.random.default_rng(a.seed)
+    Xs = load_waves(a.waves)
+    views, eff_names, n_rate, P, n = csv_views(a.waves, a.v, a.g, None)
+    if n_rate != 1:
+        raise SystemExit("this check covers the network model only")
+
+    post = load_posterior(a.posterior)
+    print(
+        f"{Path(a.waves[0]).stem}, {len(a.waves)} waves -> {P} periods, n = {n}, "
+        f"{a.B} simulations per period"
+    )
+    check_n(a.posterior, n)
+    phi, info = combine(post, views, 1, draws=max(4000, a.B), proposal=a.proposal, seed=a.seed)
+    print(f"  posterior by {info['method']}, ESS {info['ess']:.0f} effective draws\n")
+
+    v = np.loadtxt(a.v, delimiter=",", ndmin=1)
+    g = np.loadtxt(a.g, delimiter=",", ndmin=1)
+    covs = {
+        "v": np.repeat(np.asarray(v, float)[None], a.B, 0),
+        "g": np.repeat(np.asarray(g - g.min(), float)[None], a.B, 0),
+    }
+    model = m2_model(covs)
+    draws = phi[rng.choice(len(phi), a.B, replace=True)]
+
+    rejected = 0
+    for w in range(P):
+        X0 = np.repeat(Xs[w][None], a.B, 0).astype(np.int8)
+        Xsim = simulate_period(
+            X0, draws[:, P:], np.ascontiguousarray(draws[:, w]), model, rng
+        )
+        if a.cap:
+            cap_outdegree(Xsim, np.full(len(Xsim), a.cap), rng)
+        sim = auxiliary(Xsim)
+        obs = auxiliary(np.asarray(Xs[w + 1])[None].astype(np.int8))
+        print(f"== period {w + 1}: wave {w + 1} -> wave {w + 2}")
+        print(f"{'statistic':<16}{'Mahalanobis p':>15}   largest deviations")
+        for key in ("outdegree", "indegree", "triad census", "geodesic"):
+            p_, _, contrib = mahalanobis_test(sim[key], obs[key][0])
+            worst = np.argsort(-np.abs(contrib))[:3]
+            bits = ", ".join(
+                f"{labels[key][j]} {contrib[j]:+.1f}" for j in worst if abs(contrib[j]) > 0.5
+            )
+            rejected += p_ < 0.05
+            print(
+                f"{key:<16}{p_:>15.3f}   {bits or 'none > 0.5 sd'}"
+                + ("  <-- rejected" if p_ < 0.05 else "")
+            )
+        print()
+    print(
+        "p is the fraction of simulated networks at least as far from the simulated mean "
+        "as\nthe observed one; deviations are per-entry standardised differences in sd.\n"
+        f"{rejected} of {4 * P} tests rejected at 5 %."
+    )
+    if rejected:
+        print(
+            "A rejection is a statement about the model, not about the estimator: RSiena "
+            "simulates\nthe same process and would say the same. See docs/GOF_RESULTS.md "
+            "for a worked case\nwhere the cause was a nomination cap the SAOM does not "
+            "enforce, and where truncating\nthe simulations (--cap) did not repair it."
+        )
+    return 0
