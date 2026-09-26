@@ -375,12 +375,20 @@ school is an order of magnitude tighter and inside the combined bound.
 
 | parameter | our sd | RSiena se | ratio |
 |---|---|---|---|
-| avAlt (influence) | 1.17 | 1.83 | **0.64** |
-| quad | 0.31 | 0.47 | **0.66** |
-| linear | 0.34 | 0.41 | 0.83 |
-| simZ (selection) | 1.06 | 1.25 | 0.85 |
-| structural block | — | — | 0.95–1.07 |
-| egoZ, altZ, rate_beh | — | — | 1.14–1.18 |
+| avAlt (influence) | 1.171 | 1.834 | **0.64** |
+| quad | 0.305 | 0.468 | **0.65** |
+| linear | 0.340 | 0.413 | 0.82 |
+| simZ (selection) | 1.053 | 1.248 | 0.84 |
+| structural block | — | — | 0.94–1.02 |
+| egoZ, altZ, rate_beh | — | — | 1.11–1.14 |
+
+*Regenerated 2026-09-26 by `benchmarks/paper_tables.py --model coev --ratios`. The four
+headline rows are unchanged to two decimals; the two summary ranges were recorded as
+0.95–1.07 and 1.14–1.18 and compute as 0.94–1.02 and 1.11–1.14. The ratio is of the
+means — mean(our sd) / mean(their se) — not the mean of the per-class ratios, which for
+influence would give 1.18 rather than 0.64 because a class where RSiena is very imprecise
+dominates a mean of ratios. That distinction is now stated in the script rather than left
+implicit.*
 
 On the structural parameters the two methods are within a few per cent. On
 the *behaviour* parameters — the ones the study is about — the amortized

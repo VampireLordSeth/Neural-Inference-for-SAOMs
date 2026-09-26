@@ -99,11 +99,54 @@ def rows_for(model):
     return out
 
 
+
+def precision_ratios(model):
+    """Per parameter, our mean posterior sd against RSiena's mean standard error.
+
+    The ratio is of the *means* -- mean(our sd) / mean(their se) -- not the mean of the
+    per-class ratios. The two differ materially here (0.64 against 1.18 on influence)
+    because a class where RSiena is very imprecise dominates a mean of ratios while
+    contributing proportionately to a ratio of means, and it is the second that answers
+    "over these classes, whose intervals are narrower".
+    """
+    pattern, ref_tmpl = SPECS[model]
+    acc = {}
+    for f in sorted(glob.glob(str(ROOT / pattern))):
+        g = re.search(r"school(\d+)", Path(f).name).group(1)
+        ref = ROOT / ref_tmpl.format(g)
+        if not ref.exists():
+            continue
+        d = json.loads(ref.read_text(encoding="utf-8"))
+        est, se = d["estimate"], d.get("se", {})
+        z = np.load(f, allow_pickle=True)
+        names, S = [str(s) for s in z["names"]], z["samples"]
+        for k, nm in enumerate(names):
+            key = match_key(est, nm)
+            if key is None:
+                continue
+            e = se.get(key)
+            if not e or e != e:
+                continue
+            acc.setdefault(nm, [[], []])
+            acc[nm][0].append(S[:, k].std(ddof=1))
+            acc[nm][1].append(e)
+    return {nm: (np.mean(a), np.mean(b), np.mean(a) / np.mean(b)) for nm, (a, b) in acc.items()}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="net", choices=list(SPECS))
     ap.add_argument("--markdown", action="store_true")
+    ap.add_argument("--ratios", action="store_true",
+                    help="print the precision comparison instead of the per-class table")
     a = ap.parse_args()
+    if a.ratios:
+        r = precision_ratios(a.model)
+        print(f"{'parameter':<12}{'our sd':>9}{'RSiena se':>11}{'ratio':>8}")
+        for nm, (o, e, rt) in r.items():
+            print(f"{nm:<12}{o:9.3f}{e:11.3f}{rt:8.2f}")
+        return
+
     rows = rows_for(a.model)
     if not rows:
         raise SystemExit(f"no per-class posteriors found for {a.model!r}")
