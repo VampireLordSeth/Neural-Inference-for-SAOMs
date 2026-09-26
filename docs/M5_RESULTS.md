@@ -292,6 +292,8 @@ judged at 10⁷, and the fourth population on which it has held.
 
 ### The schools at 10⁷
 
+![nineteen schools](figures/nineteen_schools.png)
+
 All 19 schools have all eight parameters inside the 90 % interval
 (152 of 152), with a largest |z| of 1.47 anywhere in the study. The
 posteriors are 3–17 % narrower than at 10⁶ and now sit on RSiena's own

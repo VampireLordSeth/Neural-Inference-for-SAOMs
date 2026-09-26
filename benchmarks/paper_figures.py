@@ -26,6 +26,7 @@ posteriors and reference fits, so it runs in seconds.
 
 import argparse
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -35,20 +36,38 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# sienaBayes posterior means of mu and tau, from PartialBayesResult.RData via
-# benchmarks/baerveldt/sienabayes_extract.R (400 post-warm-up draws of an intended 500;
-# see docs/M5_RESULTS.md for why that caveat matters here specifically). Transcribed
-# rather than re-read because the .RData needs R and RSienaTest to open.
-SIENABAYES = {
-    "rate": (6.08, 2.04),
-    "density": (-2.72, 1.02),
-    "recip": (2.08, 0.96),
-    "transTrip": (0.87, 0.78),
-    "cycle3": (-0.59, 0.89),
-    "altX(v)": (-0.04, 0.72),
-    "egoX(v)": (0.00, 0.72),
-    "sameX(g)": (0.50, 0.79),
+# RSienaTest labels its effects differently from us; map them onto our names so the
+# sienaBayes numbers can be read from its own export rather than transcribed.
+SIENABAYES_LABELS = {
+    "basic rate parameter net": "rate",
+    "outdegree (density)": "density",
+    "reciprocity": "recip",
+    "transitive triplets": "transTrip",
+    "3-cycles": "cycle3",
+    "v alter": "altX(v)",
+    "v ego": "egoX(v)",
+    "same g": "sameX(g)",
 }
+
+
+def _sienabayes(path):
+    """our name -> (mu, tau) from the sienaBayes export, with its caveat attached.
+
+    The run stalled at iteration ~542 of 600 and these are 400 post-warm-up draws from
+    the periodic checkpoint (docs/M5_RESULTS.md). Read from the file rather than copied
+    into this script, so the provenance travels with the number.
+    """
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = {}
+    for raw, mu in d["mu"].items():
+        nm = SIENABAYES_LABELS.get(raw)
+        if nm is None:
+            nm = next((v for k, v in SIENABAYES_LABELS.items() if k.lower() in raw.lower()), None)
+        if nm:
+            out[nm] = (mu, d["tau"][raw])
+    return out, d.get("note", "")
+
+
 # The co-evolution prior box on the two parameters plotted in the ridge figure
 # (docs/PRIORS_M3b.md, PRIORS_M4.md). Both populations used the same range for these.
 PRIOR_BOX = {"avAlt": (-1.0, 4.0), "quad": (-1.5, 0.5)}
@@ -140,6 +159,7 @@ def tau_three_routes(out_dir, src="data/baerveldt_c_net_population.npz"):
     names = [str(s) for s in z["names"]]
     mu, tau = z["mu"], z["tau"]  # (K, draws)
     s08 = _siena08(ROOT / "benchmarks/baerveldt/siena08_network2w.csv")
+    sb, sb_note = _sienabayes(ROOT / "benchmarks/baerveldt/sienabayes_network2w.json")
 
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(11, 4.4))
     y = np.arange(len(names))[::-1]
@@ -152,7 +172,7 @@ def tau_three_routes(out_dir, src="data/baerveldt_c_net_population.npz"):
     )
     a1.scatter([s08.get(n, (np.nan,))[0] for n in names], y, marker="s", s=34,
                facecolor="none", edgecolor="#2e7d32", lw=1.3, label="siena08")
-    a1.scatter([SIENABAYES.get(n, (np.nan,))[0] for n in names], y, marker="^", s=38,
+    a1.scatter([sb.get(n, (np.nan, np.nan))[0] for n in names], y, marker="^", s=38,
                facecolor="none", edgecolor="#c0392b", lw=1.3, label="sienaBayes")
     a1.axvline(0, color="0.8", lw=0.8)
     a1.set_yticks(y, [PRETTY.get(n, n) for n in names], fontsize=9)
@@ -168,7 +188,7 @@ def tau_three_routes(out_dir, src="data/baerveldt_c_net_population.npz"):
     )
     a2.scatter([s08.get(n, (np.nan, np.nan))[1] for n in names], y, marker="s", s=34,
                facecolor="none", edgecolor="#2e7d32", lw=1.3, label="siena08")
-    a2.scatter([SIENABAYES.get(n, (np.nan, np.nan))[1] for n in names], y, marker="^", s=38,
+    a2.scatter([sb.get(n, (np.nan, np.nan))[1] for n in names], y, marker="^", s=38,
                facecolor="none", edgecolor="#c0392b", lw=1.3, label="sienaBayes")
     a2.set_yticks(y, [])
     a2.set_xlim(left=0)
@@ -265,10 +285,75 @@ def influence_ridge(out_dir):
     return dest
 
 
+
+def nineteen_schools(out_dir, src="data/baerveldt_c_net_population.npz"):
+    """Per-school posteriors against the population band, with RSiena overlaid.
+
+    This is the "mechanisms as outcomes" picture: the same instrument applied to nineteen
+    classes without per-class tuning, so the strength of a mechanism becomes a quantity
+    that varies across settings rather than a number reported from one network. The band
+    is mu +- tau from the population stage. Where the band is wide relative to the
+    per-class intervals the mechanism might vary; where the per-class intervals are wide
+    relative to the band, nineteen two-wave classes cannot tell.
+    """
+    import json
+
+    import matplotlib.pyplot as plt
+
+    p = ROOT / src
+    if not p.exists():
+        print(f"  skip nineteen schools: {src} not found")
+        return None
+    z = np.load(p, allow_pickle=True)
+    names = [str(s) for s in z["names"]]
+    groups = [str(g) for g in z["groups"]]
+    gm, gs = z["group_means"], z["group_sds"]  # (19, K)
+    mu, tau = z["mu"].mean(1), z["tau"].mean(1)
+
+    # RSiena's own per-school fits, for the same parameters
+    rs = {}
+    for i, g in enumerate(groups):
+        f = ROOT / f"benchmarks/baerveldt/rsiena_network2w_{g.replace('school', '')}.json"
+        if f.exists():
+            est = json.loads(f.read_text(encoding="utf-8"))["estimate"]
+            by = {k.split(":")[-1].split("(")[0]: v for k, v in est.items()}
+            by["rate"] = next((v for k, v in est.items() if "rate" in k), np.nan)
+            rs[i] = by
+
+    show = [n for n in names if n != "rate"]
+    fig, axes = plt.subplots(1, len(show), figsize=(2.05 * len(show), 5.4), sharey=True)
+    y = np.arange(len(groups))[::-1]
+    for ax, nm in zip(np.atleast_1d(axes), show, strict=True):
+        k = names.index(nm)
+        ax.axvspan(mu[k] - tau[k], mu[k] + tau[k], color="#4a6fa5", alpha=0.13, lw=0)
+        ax.axvline(mu[k], color="#4a6fa5", lw=1.3)
+        ax.errorbar(gm[:, k], y, xerr=1.645 * gs[:, k], fmt="o", ms=3.4, lw=1.0,
+                    color="#1a3d6d", capsize=0)
+        base = nm.split("(")[0]
+        pts = [rs[i].get(base, np.nan) if i in rs else np.nan for i in range(len(groups))]
+        ax.scatter(pts, y, marker="x", s=22, color="#c0392b", lw=1.1, zorder=4)
+        ax.set_title(PRETTY.get(nm, nm), fontsize=9)
+        ax.tick_params(labelsize=7)
+    np.atleast_1d(axes)[0].set_yticks(y, [g.replace("school", "") for g in groups], fontsize=7)
+    np.atleast_1d(axes)[0].set_ylabel("school class", fontsize=9)
+    fig.suptitle(
+        "One estimator, nineteen school classes: per-class posteriors (90 %, dark) "
+        r"against the population $\mu \pm \tau$ (band)"
+        "\nred x = RSiena's own per-class fit",
+        fontsize=10,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    dest = out_dir / "nineteen_schools.png"
+    fig.savefig(dest, dpi=200)
+    plt.close(fig)
+    return dest
+
+
 FIGURES = {
     "per-period": per_period_calibration,
     "tau": tau_three_routes,
     "ridge": influence_ridge,
+    "schools": nineteen_schools,
 }
 
 
