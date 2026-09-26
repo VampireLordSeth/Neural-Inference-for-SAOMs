@@ -469,6 +469,8 @@ where the discrepancy below appears, and that caveat is load-bearing.
 | egoX(delinq) | 0.00 | 0.00 | 0.01 | 0.11 | **0.72** | 0.11 |
 | sameX(sex) | 0.53 | 0.50 | 0.52 | 0.29 | **0.79** | 0.20 |
 
+![three routes to mu and tau](figures/tau_three_routes.png)
+
 **The population means agree three ways.** Every μ from the amortized route is
 within 0.4 of both references, and on the covariate effects — where the
 substantive interest lies — all three agree to two decimals. An estimator

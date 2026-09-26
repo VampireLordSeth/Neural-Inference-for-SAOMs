@@ -165,14 +165,24 @@ comparable — and they separate the distribution shift from anything the produc
 
 | parameter | period 1 KS p | mean rank | 90 % cov | | period 2 KS p | mean rank | 90 % cov |
 |---|---|---|---|---|---|---|---|
-| rate | 0.476 | 0.489 | 0.892 | | **0.008** | 0.528 | 0.886 |
-| density | 0.856 | 0.501 | 0.900 | | **0.014** | 0.528 | 0.906 |
-| recip | 0.896 | 0.500 | 0.887 | | 0.406 | 0.499 | 0.872 |
-| transTrip | 0.630 | 0.493 | 0.904 | | 0.811 | 0.495 | 0.903 |
-| cycle3 | 0.500 | 0.507 | 0.915 | | 0.286 | 0.486 | 0.892 |
-| altX(v) | 0.323 | 0.505 | 0.905 | | 0.136 | 0.514 | 0.872 |
-| egoX(v) | 0.428 | 0.494 | 0.902 | | 0.657 | 0.506 | 0.890 |
-| sameX(g) | **0.008** | 0.475 | 0.904 | | 0.146 | 0.490 | 0.872 |
+| rate | 0.428 | 0.489 | 0.891 | | **0.019** | **0.528** | 0.878 |
+| density | 0.811 | 0.502 | 0.897 | | **0.021** | **0.528** | 0.909 |
+| recip | 0.896 | 0.499 | 0.889 | | 0.269 | 0.499 | 0.868 |
+| transTrip | 0.525 | 0.492 | 0.902 | | 0.762 | 0.495 | 0.897 |
+| cycle3 | 0.452 | 0.507 | 0.914 | | 0.342 | 0.487 | 0.895 |
+| altX(v) | 0.710 | 0.505 | 0.903 | | 0.117 | 0.514 | 0.866 |
+| egoX(v) | 0.452 | 0.494 | 0.898 | | 0.657 | 0.506 | 0.894 |
+| sameX(g) | **0.009** | 0.475 | 0.902 | | 0.086 | 0.490 | 0.874 |
+
+![per-period rank calibration](figures/multiwave_per_period_ranks.png)
+
+**Read the mean rank, not the p-value.** Two independent runs of this test, on different
+simulated panels, gave *identical* mean ranks — 0.528, 0.528 and 0.475 on the three
+flagged cells — while their KS p-values moved from 0.008 to 0.019, from 0.014 to 0.021
+and from 0.008 to 0.009. The tilt is the stable quantity; the p-value attached to it is
+itself a random variable, and quoting it to three figures would imply a precision the
+test does not have. The figure shows why the tilt is real: period 2's rate and density
+ranks rise smoothly across the whole range rather than spiking in one bin.
 
 Period 1 starts from a network drawn the way the training population draws them and is
 clean, 7 of 8 passing. Period 2 starts from an **evolved** network — something the
@@ -188,7 +198,8 @@ for a period, so that what period 2 conditions on is in distribution. That is a
 population change, not a change to any of this, and it is deliberately **not** folded
 into the M6 run now training, which varies n alone so that its effect stays attributable.
 
-`sameX` is a separate matter: it fails in period 1 as well (p = 0.008), so its weakness
+`sameX` is a separate matter: it fails in period 1 as well (p = 0.009, mean rank 0.475
+in both runs), so its weakness
 belongs to `npe_m5c` and is merely inherited here.
 
 ### Knecht, four waves

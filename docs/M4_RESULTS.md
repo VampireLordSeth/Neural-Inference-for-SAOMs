@@ -582,6 +582,39 @@ z compares ML with the posterior using both uncertainties):
   MoM 1.33 and our 2.72; here 0.40 against 1.34 and 2.82. Two panels, 2.6×
   apart in size, produce the same ordering and nearly the same numbers.
 
+### The amortized end of the ridge is against the prior box (noticed 2026-09-26)
+
+![influence-curvature ridge](figures/influence_curvature_ridge.png)
+
+Drawing the joint posterior for the paper figure
+(`benchmarks/paper_figures.py --only ridge`, `docs/figures/influence_curvature_ridge.png`)
+made visible something the tables had not: **on both panels the posterior piles against
+two faces of the prior box**, which for these populations is avAlt ~ U(−1, 4) and
+quad ~ U(−1.5, 0.5).
+
+| panel | mass within 2 % of the avAlt upper face | of the quad lower face |
+|---|---|---|
+| Glasgow (M4, 10⁷) | **5.1 %** | **5.5 %** |
+| s50 (M4, 10⁷) | 4.2 % | **12.1 %** |
+| s50 (M3b, 10⁷) | 3.1 % | 5.0 % |
+
+This is the prior-face warning `fit.py` reports, firing on the two parameters the whole
+discussion is about, and it was not carried into the tables above. Three consequences:
+
+1. **The reported amortized means are pulled in by the box.** With a wider prior the
+   posterior would extend further up the ridge, so the gap to MoM and ML in the table
+   above is a *lower bound* on the disagreement, not an estimate of it.
+2. **The amortized influence figure is partly a statement about where we put the prior.**
+   "avAlt 2.82 ± 0.75" should be read as "at least this large, and the box stops us
+   saying how much larger".
+3. It does not change what the ridge settles. The three estimators still lie along one
+   direction, and the posterior predictive check below still excludes the ML end. A
+   truncated posterior is a weaker claim about *magnitude*, not a different claim about
+   *geometry*.
+
+The fix is a population with a wider avAlt/quad box, which is a fresh 10⁷ run and has not
+been done. Until then this caveat belongs wherever the influence estimate is quoted.
+
 **What this settles.** The offset reported since 2026-09-18 is not a property
 of one dataset, one estimator or one training budget: three estimators lie
 along a single ridge in (avAlt, quad) — the direction in which the joint
