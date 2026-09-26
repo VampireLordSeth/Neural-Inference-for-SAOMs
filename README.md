@@ -64,6 +64,8 @@ unvalidated step.
 | **M3a — Multiple waves** | Three observation waves, one rate per period. Matches RSiena's three-wave fit; the posterior tightens with the extra wave just as RSiena's standard errors do. | done · `docs/M3_RESULTS.md` |
 | **M3b — Selection vs influence** | Networks and a behaviour (e.g. alcohol use) evolving together. Simulator validated against RSiena; a 14-parameter estimator is calibrated across sizes and behaviour scales and agrees with RSiena on the classic alcohol-and-friendship data, recovering both selection and influence; at ten million training panels every RSiena estimate lies inside the amortized 90% interval. | done · `docs/M3_RESULTS.md` |
 | **M4 — Application** | Many networks at once, at a scale existing tools cannot reach. Step 1: the estimator extends to networks of up to 200 actors, calibrated at every size; on the full Glasgow school panel (129 pupils) the first version matched RSiena on the structural effects but read the change rates low, traced to a training population too dense for a real school network; with starts that keep mean degree fixed as n grows (step 2) all nine parameters agree with RSiena, in 0.06 s against RSiena's 219 s. With a co-evolving behaviour (14 parameters, 10⁷ panels) the structural effects and rates agree too; selection and influence read 1.8–2.0 sd above RSiena's method-of-moments values, a stable offset now being checked against RSiena's likelihood fit. | in progress · `docs/M4_RESULTS.md` |
+| **M5 — Many groups** | Nineteen school classes at once (Baerveldt), each fit in seconds, then a population stage over the per-class posteriors. The population means agree three ways — our normal–normal stage, `siena08`'s IWLS and `sienaBayes`'s MCMC — but the between-class variance is **not** resolvable from nineteen two-wave classes, and more compute does not help. Five classes fell outside the prior box, which widening on sparsity grounds fixed at a cost paid only by the widened parameters. | done · `docs/M5_RESULTS.md` |
+| **Any number of waves** | The wave count was a property of the estimator; it need not be. Because the SAOM likelihood factorises over periods and the priors are flat on a box, the per-period two-wave posteriors multiply to the joint one, so **one two-wave estimator reads a panel of any length**. On the four-wave Knecht classroom it lands within 1.04 sd of RSiena's four-wave network fit and 1.09 sd of its four-wave co-evolution fit. Calibration over 400 simulated three-wave panels is good but not perfect, and a per-period diagnostic pins the shortfall on the later periods, which start from an *evolved* network the two-wave training population never contained — a population problem rather than a flaw in the factorisation. The binding constraint is now the estimator's **n** range, not the wave count. | done · `docs/MULTIWAVE.md` |
 
 Headline numbers so far:
 
@@ -94,8 +96,9 @@ Headline numbers so far:
   `backend_torch.py`), the slow-but-obviously-correct reference
   implementations every kernel is tested against (`reference.py`), two
   classical estimators for comparison (`estimate.py`), the training-set
-  machinery (`prior.py`, `population*.py`) and a learned graph embedding
-  (`embedding.py`).
+  machinery (`prior.py`, `population*.py`), the period views that let one
+  two-wave estimator read a panel of any length (`multiwave.py`) and a learned
+  graph embedding (`embedding.py`).
 - **`benchmarks/`** — the RSiena comparisons (R scripts and their exported
   results, plus Python tests that reproduce them without R), the training
   and evaluation scripts for each milestone, and the `s50` example data.
@@ -153,6 +156,27 @@ scores on a 1–5 scale. Three waves, 20–200 actors, the fixed effect sets of
 population and flags any summary outside the 2nd–98th percentile — the check
 that tells you whether the posterior can be trusted — then samples it in
 about half a second. `python benchmarks/fit.py --help` has the details.
+
+### Panels that are not three waves
+
+`fit.py` wants the wave count its estimator was trained for. `multiwave.py` does
+not, and reads a panel of any length with the **two**-wave estimator:
+
+```bash
+python benchmarks/multiwave.py --posterior data/npe_m5c.pt \
+    --waves-csv w1.csv w2.csv w3.csv w4.csv --v v.csv --g g.csv
+```
+
+A SAOM's likelihood factorises over periods and our priors are flat on a box, so
+the per-period posteriors multiply to the joint one; the estimator is applied
+once per period and the product is sampled. One rate comes back per period, the
+effects are shared, and nothing is retrained. On s50 it agrees with the
+purpose-built three-wave estimator and with RSiena to under one standardised
+error on every parameter. `docs/MULTIWAVE.md` has the argument, the numbers and
+the limits — chiefly that the estimator's **n** range, not the wave count, now
+constrains which panels it can read, and that calibration degrades slightly on
+the later periods because they start from an *evolved* network, which the
+two-wave training population never contained.
 
 ## Conventions worth knowing
 

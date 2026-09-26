@@ -20,3 +20,11 @@ benchmarks/_data/
 benchmarks/*.csv
 benchmarks/*/*.csv
 benchmarks/*/*.dat
+
+# run artefacts: sienaBayes/siena07 write these into the working directory
+project*.txt
+project*-*.log
+startup_sienaBayes*
+PartialBayesResult.RData
+*.rds
+logs/

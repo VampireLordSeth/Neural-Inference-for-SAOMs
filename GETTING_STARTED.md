@@ -379,6 +379,29 @@ bandwidth is modest, so treat it as a throughput box.
     RSiena ML fit and PPC on Glasgow for that triple; Knecht. Sparse
     simulator for n > 500 remains.
 
+- **2026-09-26 — one estimator, any number of waves.** The wave count was a
+  property of the estimator (29 summaries and one rate at two waves, 42 and two
+  at three), so a four-wave classroom had no estimator at all. It need not be:
+  the SAOM likelihood factorises over periods and our priors are flat on a box,
+  so the per-period two-wave posteriors *multiply* to the joint posterior over
+  (rate_1 … rate_{W−1}, β). One two-wave estimator therefore reads a panel of
+  any length — apply it per period, sample the product. For the network
+  summaries the per-period conditioning vector is a pure re-slice of the long
+  one; co-evolution has to recompute one cross-lagged statistic and refuses to
+  re-slice rather than returning the wrong number silently. Validated three
+  ways: s50 at three waves agrees with the purpose-built three-wave estimator
+  and RSiena (all |z| < 1); Knecht at four waves lands within 1.04 sd of
+  RSiena's own four-wave fit, and 1.09 sd with delinquency co-evolving. SBC over
+  400 three-wave panels rejects 2 of 9 — worse than `npe_m5c`'s own 0 of 8 — and
+  a per-period run localises it: period 1 (population start) passes 7 of 8,
+  period 2 (**evolved** start) rejects rate and density, both with mean rank
+  0.528, i.e. read low. The factorisation is not what costs; the training
+  population is, and the fix is starts that have themselves been evolved.
+  `docs/MULTIWAVE.md`. The binding constraint is now **n**, not
+  waves — `npe_m5c` covers 30–100, so of our benchmarks it can legitimately read
+  only s50; a population at n ∈ [20, 150], everything else held fixed, is in
+  training as M6.
+
 ## 8. Conventions worth keeping
 
 - **The reference implementations in `reference.py` are sacred.** They are slow
