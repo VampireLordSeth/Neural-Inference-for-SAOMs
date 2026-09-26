@@ -41,7 +41,7 @@ from benchmarks.multiwave import (  # noqa: E402
 )
 from saomsim import simulate_period  # noqa: E402
 from saomsim.gof import TRIAD_TYPES, auxiliary, mahalanobis_test  # noqa: E402
-from saomsim.population import m2_model  # noqa: E402
+from saomsim.population import cap_outdegree, m2_model  # noqa: E402
 
 LABELS = {
     "outdegree": [f"out {k}" for k in range(8)] + ["out 8+"],
@@ -79,6 +79,13 @@ def main():
         "--point-control", action="store_true",
         help="also check the posterior mean as a point, to separate the location of the "
              "estimate from the propagation of its uncertainty"
+    )
+    ap.add_argument(
+        "--cap", type=int, default=0,
+        help="truncate each simulated actor to this many out-ties before computing the "
+             "statistics, as a nomination-limited questionnaire would. Tests whether the "
+             "misfit belongs to the observation process rather than to the model. 0 "
+             "disables it; the observed cap is 6 for Glasgow and 5 for s50."
     )
     ap.add_argument("--out", help="write the per-statistic table to this .npz")
     a = ap.parse_args()
@@ -170,6 +177,11 @@ def main():
             Xsim = simulate_period(
                 X0, beta, np.ascontiguousarray(rate_cols[:, w]), model, rng, backend=a.backend
             )
+            if a.cap:
+                # The process runs uncapped; only what is recorded is truncated. If this
+                # makes the misfit go away, the SAOM is not wrong about the dynamics -- the
+                # survey simply could not write down everything the dynamics produced.
+                cap_outdegree(Xsim, np.full(len(Xsim), a.cap), rng)
             sim = auxiliary(Xsim)
             obs = auxiliary(np.asarray(Xs[w + 1])[None].astype(np.int8))
             print(f"== period {w + 1}: wave {w + 1} -> wave {w + 2}")

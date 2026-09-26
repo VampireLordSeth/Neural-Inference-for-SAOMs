@@ -107,7 +107,7 @@ the observed networks have **too many actors at moderate out-degree** (Glasgow: 
 +4.2 sd, out 4 at +3.4; s50: out 3 at +2.3) and are **less connected at long range**
 (d = 4 and d = 5 under-represented, unreachable pairs over-represented).
 
-Both datasets are nomination-limited surveys, and that is the whole story:
+Both datasets are nomination-limited surveys, and the cap is certainly involved:
 
 | | observed cap | actors at the cap | simulated max out-degree | simulations breaching the cap | simulated actors over the cap |
 |---|---|---|---|---|---|
@@ -118,16 +118,51 @@ The questionnaires allowed six friends (Glasgow) and five (s50); nobody could na
 and 13–16 % of Glasgow pupils named exactly the maximum. **The SAOM as specified has no
 mechanism that enforces a nomination cap during simulation**, so simulating forward
 produces networks with out-degrees the survey could not have recorded, and with the
-longer reach that those extra ties buy. The degree, triad and geodesic statistics all
-register the same thing.
+longer reach that those extra ties buy.
+
+### But truncation does not repair it, and that is the more interesting result
+
+The obvious hypothesis is that the *process* is uncapped and only the *record* is
+truncated — the survey wrote down six of however many friends a pupil had. If so,
+truncating each simulated actor to six out-ties before computing the statistics should
+restore the fit. `--cap 6` does exactly that, and it does not:
+
+| statistic | posterior, uncapped | posterior, truncated at 6 |
+|---|---|---|
+| outdegree p1 | 0.001 | 0.001 |
+| triad census p1 | 0.004 | 0.001 |
+| geodesic p1 | 0.017 | 0.005 |
+| outdegree p2 | 0.001 | 0.016 |
+
+The deviations say why. Truncating piles every simulated actor who had more than six
+ties onto exactly six, and the sign on that cell flips to `out 6` at **−2.7 sd** — the
+truncated simulations now have *too many* actors at the cap. The observed distribution
+does not pile up there at all. Glasgow's out-degree counts for 0…6 are
+6, 7, 24, 29, 25, 21, 17 at wave 1 and 5, 10, 17, 31, 30, 28, **8** at wave 2: a
+unimodal hump with a mode at three to five that *declines* into the ceiling, with fewer
+pupils at six than at five in wave 2.
+
+So the observed data is not an uncapped SAOM seen through a truncating instrument. The
+SAOM's out-degree distribution is **too dispersed in shape**, not merely too long in its
+upper tail: it puts too few actors in the narrow 3–5 band where nomination data
+concentrates, and spreads the rest both below and above. A measurement model cannot fix
+that, because the problem is in the dynamics. The literature's remedy is a model effect
+that changes them — RSiena's `outTrunc`, which penalises out-degrees beyond a threshold
+in the objective function, or the degree-activity effects — and that is a specification
+change, which is the next experiment rather than a conclusion here.
+
+(This paragraph replaced an earlier reading of ours which said the cap "is the whole
+story". The truncation test is what refuted it, and it took twenty minutes; the lesson is
+that "the misfit is an artefact of the observation process" is a claim to test rather than
+to assert, because it is the comfortable conclusion.)
 
 Three consequences, in order of how much they matter.
 
 1. **This is a property of the model class, not of the estimator.** RSiena's simulator is
-   the same process, so its own `sienaGOF` on these data would say the same. Nothing here
-   distinguishes amortized inference from method of moments; the remedy is to model the
-   cap or to add degree effects (`outActSqrt`, `outTrunc`) that mimic it, and that is a
-   specification change both methods would share.
+   the same process, so its own `sienaGOF` on these data would say the same, and the
+   truncation test above behaves identically at RSiena's point. Nothing here distinguishes
+   amortized inference from method of moments; the remedy is a specification change
+   (`outTrunc`, or degree-activity effects) that both methods would share.
 2. **It explains the n-dependence of the s50 result.** The breach is twice as severe at
    Glasgow as at s50 (13.3 % against 5.7 % of actors), and Glasgow has 2.6× the actors to
    detect it with. A specification failure that a 50-actor panel cannot resolve is plain
@@ -152,7 +187,8 @@ evidence was behaviour-only, and a reviewer would have asked for the network sid
 It does not cover the co-evolution model's network and behaviour statistics jointly,
 which `sienaGOF` can do and we have not. It also leaves two questions open that it
 raised itself: whether fitting a specification with degree effects removes the Glasgow
-misfit (it should, and that is the obvious next experiment), and whether the
+misfit (the truncation test shows a measurement model will not do it, so the effect has to
+enter the dynamics), and whether the
 capped-start / uncapped-simulation mismatch in the training population costs anything
 measurable.
 
