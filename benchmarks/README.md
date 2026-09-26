@@ -65,9 +65,31 @@ same way.
 
 ## Data provenance
 
+**No benchmark dataset is redistributed in this repository.** `fetch_data.py`
+obtains each one from the source its authors publish, and the `prepare_and_fit.R`
+scripts turn the downloads into the CSVs the benchmarks read:
+
+```bash
+python benchmarks/fetch_data.py                       # all four
+Rscript benchmarks/baerveldt/prepare_and_fit.R benchmarks/_data/baerveldt
+Rscript benchmarks/glasgow/prepare_and_fit.R   benchmarks/_data/glasgow
+Rscript benchmarks/knecht/prepare_and_fit.R    benchmarks/_data/knecht
+```
+
+s50 comes from the `RSiena` package itself and is exported by `fetch_data.py s50`,
+which needs R and RSiena installed. The other three come from the Siena datasets
+page, which states no licence: treat the data as the collecting studies' and
+follow their citation requests. The Knecht classroom derives from a dissertation
+archived at DANS, which sets its own access conditions.
+
+The RSiena reference fits (`*/rsiena_*.json`) and the screening references
+(`models/*.npz`) *are* committed: those are outputs we computed, not the data.
+
+### Original sources
+
 `s501.csv`, `s502.csv`, `s503.csv` (friendship networks, three waves, n = 50),
 `s50a.csv` (alcohol use) and `s50_covariates.csv` (alcohol, smoking at wave 1)
-are the **s50** example data distributed with the RSiena R package (GPL-3), an
+**s50** is the example data distributed with the RSiena R package (GPL-3), an
 excerpt of the Teenage Friends and Lifestyle Study (Michell & West; Pearson &
-West). They are redistributed here unchanged, as CSV, solely so that the parity
-tests run without R. Cite RSiena / the original study when using them.
+West). `fetch_data.py s50` exports it to CSV from an installed RSiena so the parity
+tests can run without R afterwards. Cite RSiena and the original study.

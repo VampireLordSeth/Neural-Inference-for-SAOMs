@@ -14,3 +14,9 @@ data/
 cusna-npe-paper-v1/
 recommendations for the paper.md
 paper/
+
+# benchmark datasets: fetched by benchmarks/fetch_data.py, not redistributed
+benchmarks/_data/
+benchmarks/*.csv
+benchmarks/*/*.csv
+benchmarks/*/*.dat
