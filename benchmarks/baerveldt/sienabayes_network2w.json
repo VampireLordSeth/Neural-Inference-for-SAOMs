@@ -1,0 +1,68 @@
+{
+  "rsienatest_version": "1.2.30",
+  "source": "PartialBayesResult.RData",
+  "groups": 19,
+  "nwarm": 100,
+  "n_draws": 400,
+  "note": "from the periodic checkpoint; the run stalled at iteration ~542 of 600",
+  "mu": {
+    "basic rate parameter net": 6.08469259566222,
+    "outdegree (density)": -2.71637925767291,
+    "reciprocity": 2.07721767657086,
+    "transitive triplets": 0.873604357391698,
+    "3-cycles": -0.592051166108286,
+    "v alter": -0.0397788015375213,
+    "v ego": 0.00013571855508919,
+    "same g": 0.503650221250828
+  },
+  "mu_q05": {
+    "basic rate parameter net": 5.2671338845145,
+    "outdegree (density)": -3.12322019098655,
+    "reciprocity": 1.71899065240449,
+    "transitive triplets": 0.579028494798893,
+    "3-cycles": -0.936373704001442,
+    "v alter": -0.316504200880173,
+    "v ego": -0.280835305829123,
+    "same g": 0.214491051130805
+  },
+  "mu_q95": {
+    "basic rate parameter net": 6.78989834603165,
+    "outdegree (density)": -2.31286588192237,
+    "reciprocity": 2.44875397539186,
+    "transitive triplets": 1.14371216003273,
+    "3-cycles": -0.23039100211812,
+    "v alter": 0.224099248073367,
+    "v ego": 0.268654221690639,
+    "same g": 0.803358244068097
+  },
+  "tau": {
+    "basic rate parameter net": 2.04415650180786,
+    "outdegree (density)": 1.01634241271938,
+    "reciprocity": 0.957352669556868,
+    "transitive triplets": 0.780528991816102,
+    "3-cycles": 0.891221341641658,
+    "v alter": 0.717731180660166,
+    "v ego": 0.722063681717111,
+    "same g": 0.794733383384727
+  },
+  "tau_q05": {
+    "basic rate parameter net": 1.48791233688371,
+    "outdegree (density)": 0.783938497934662,
+    "reciprocity": 0.740321563677429,
+    "transitive triplets": 0.60998561434032,
+    "3-cycles": 0.680755411664953,
+    "v alter": 0.56045809638904,
+    "v ego": 0.55609196161608,
+    "same g": 0.61658900234652
+  },
+  "tau_q95": {
+    "basic rate parameter net": 2.71084773045476,
+    "outdegree (density)": 1.32132414833571,
+    "reciprocity": 1.23939927378195,
+    "transitive triplets": 0.987804669708932,
+    "3-cycles": 1.1666872386333,
+    "v alter": 0.917797243051554,
+    "v ego": 0.92697721408233,
+    "same g": 1.0505706186413
+  }
+}

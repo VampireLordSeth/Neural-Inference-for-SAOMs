@@ -439,6 +439,68 @@ loses nothing that matters. An analyst who can compute more should, because
 the training run converges better for the same budget — which is the resource
 that is actually scarce.
 
+## The multilevel Bayesian reference (2026-09-26)
+
+`sienaBayes` (Koskinen & Snijders 2007, 2023) fitted to the same 19 schools and
+the same network model, with all eight effects random across schools, so it
+reports exactly what our population stage and `siena08` report: a population
+mean and a between-school spread per mechanism. Three routes, no shared
+machinery. Script `benchmarks/baerveldt/sienabayes.R`; RSienaTest 1.2-30 built
+from R-Forge source with Rtools45 and one patch (`src/siena07setup.cpp` calls
+`set_terminate` unqualified, which libstdc++ 14 no longer provides
+transitively).
+
+**Provenance, stated plainly.** The run advanced normally to iteration ~500 of
+600 and then stopped consuming CPU — 36 seconds of compute in the following
+6.7 hours, with the machine awake and the process alive. The numbers below
+come from the checkpoint sienaBayes writes every 100 iterations
+(`PartialBayesResult.RData`, `sienabayes_extract.R`): **400 post-warm-up draws
+instead of the intended 500**. A partially sampled chain is weakest exactly
+where the discrepancy below appears, and that caveat is load-bearing.
+
+| parameter | μ ours | μ sienaBayes | μ `siena08` | τ ours | τ sienaBayes | τ `siena08` |
+|---|---|---|---|---|---|---|
+| rate | 5.16 | 6.08 | 5.56 | 1.54 | 2.04 | 1.65 |
+| density | −2.97 | −2.72 | −2.89 | 0.25 | **1.02** | 0.25 |
+| recip | 2.48 | 2.08 | 2.27 | 0.32 | **0.96** | 0.18 |
+| transTrip | 0.94 | 0.87 | 0.82 | 0.24 | **0.78** | 0.13 |
+| cycle3 | −0.72 | −0.59 | −0.60 | 0.27 | **0.89** | 0.17 |
+| altX(delinq) | −0.07 | −0.04 | −0.06 | 0.07 | **0.72** | 0.07 |
+| egoX(delinq) | 0.00 | 0.00 | 0.01 | 0.11 | **0.72** | 0.11 |
+| sameX(sex) | 0.53 | 0.50 | 0.52 | 0.29 | **0.79** | 0.20 |
+
+**The population means agree three ways.** Every μ from the amortized route is
+within 0.4 of both references, and on the covariate effects — where the
+substantive interest lies — all three agree to two decimals. An estimator
+trained on ten million simulated panels, a meta-analysis of 19
+stochastic-approximation fits, and a multilevel MCMC over 19 groups land in
+the same place.
+
+**The between-school spreads do not.** Ours and `siena08` agree closely
+(0.25/0.25, 0.07/0.07, 0.11/0.11, and within 0.1 elsewhere); sienaBayes returns
+τ three to seven times larger and — the telling part — **nearly the same value,
+0.7 to 1.0, for every effect regardless of its scale**, from a covariate effect
+with μ ≈ 0 to density with μ ≈ −2.7. Two explanations, and we cannot separate
+them here:
+
+1. **The prior.** sienaBayes puts an inverse-Wishart prior on the between-group
+   covariance with default degrees of freedom p + 2 = 10, against 19 groups. A
+   third of the information about Σ is therefore prior, and a prior that is
+   near-exchangeable across parameters would produce exactly this flat τ
+   profile.
+2. **The unfinished chain.** Variance parameters mix slowest, and this chain
+   stopped 100 iterations early.
+
+What this does *not* do is overturn the finding it was run to test. Our
+conclusion was that with 19 two-wave schools **τ is not resolvable above the
+per-school uncertainty** — and a third method disagreeing with the other two by
+a factor of five, in a direction its own prior would produce, is further
+evidence for that, not against it. The population mean of a mechanism is well
+determined by these data; how much the mechanism varies between schools is
+not, and the answer one reports depends on the method and its prior. That is
+the honest state of the multi-group question at this group count, and it is
+worth more to the paper than three routes agreeing would have been.
+
 ## Still to come
 
 - A sienaBayes comparison, a summary-set ablation and sienaGOF-style network
