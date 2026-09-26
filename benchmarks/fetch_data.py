@@ -10,10 +10,14 @@ benchmarks read, and each writes its own RSiena reference fits.
 
 | key | what | source | prepare with |
 |---|---|---|---|
-| s50 | 50 pupils, 3 waves, alcohol + smoking | the `RSiena` R package's own example data | (extracted directly, no R script) |
-| glasgow | Teenage Friends and Lifestyle Study, 129 pupils, 3 waves | Siena datasets page (Glasgow_data.zip) | `glasgow/prepare_and_fit.R <dir>` |
-| baerveldt | Dutch Social Behavior study, 19 schools, 2 waves | Siena datasets page (CB_data.zip) | `baerveldt/prepare_and_fit.R <dir>` |
-| knecht | one classroom, 26 pupils, 4 waves | Siena datasets page (klas12b.zip) | `knecht/prepare_and_fit.R <dir>` |
+| s50 | 50 pupils, 3 waves, alcohol + smoking | the `RSiena` R package's own example
+  data | (extracted directly, no R script) |
+| glasgow | Teenage Friends and Lifestyle Study, 129 pupils, 3 waves | Siena datasets
+  page (Glasgow_data.zip) | `glasgow/prepare_and_fit.R <dir>` |
+| baerveldt | Dutch Social Behavior study, 19 schools, 2 waves | Siena datasets page
+  (CB_data.zip) | `baerveldt/prepare_and_fit.R <dir>` |
+| knecht | one classroom, 26 pupils, 4 waves | Siena datasets page (klas12b.zip) |
+  `knecht/prepare_and_fit.R <dir>` |
 
 Cite the original studies when you use them (`benchmarks/README.md`). The Siena datasets
 page states no licence; treat the data as the authors' and follow their citation requests.
@@ -102,7 +106,10 @@ def main() -> None:
         else:
             sys.exit(f"unknown dataset {key!r}; choose from s50, glasgow, baerveldt, knecht")
     if any(k != "s50" for k in a.which):
-        print(f"\nnow run the prepare scripts, e.g.\n  Rscript benchmarks/baerveldt/prepare_and_fit.R {out / 'baerveldt'}")
+        print(
+            "\nnow run the prepare scripts, e.g.\n"
+            f"  Rscript benchmarks/baerveldt/prepare_and_fit.R {out / 'baerveldt'}"
+        )
 
 
 if __name__ == "__main__":

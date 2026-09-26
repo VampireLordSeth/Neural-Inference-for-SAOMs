@@ -33,9 +33,9 @@ from .population import (
     CAP_EXCESS,
     ER_DENSITY,
     MEAN_DEGREE,
-    SURVEY_MEAN_DEGREE,
     N_MAX,
     N_RANGE,
+    SURVEY_MEAN_DEGREE,
     _pack,
     cap_outdegree,
 )

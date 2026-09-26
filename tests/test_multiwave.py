@@ -141,8 +141,12 @@ def test_coev_period_views_checks_wave_counts_match():
 
 
 # --------------------------------------------------------------- product sampler
+# The sampler lives in the installable package (saomsim.product); the CSV entry points and
+# the naming live in saomsim.cli. benchmarks/multiwave.py is only the research CLI on top.
 torch = pytest.importorskip("torch")
-bmw = pytest.importorskip("benchmarks.multiwave")
+bmw = pytest.importorskip("saomsim.product")
+cli = pytest.importorskip("saomsim.cli")
+bmr = pytest.importorskip("benchmarks.multiwave")
 
 
 def test_selectors_pick_the_right_rate_and_the_shared_effects():
@@ -213,8 +217,8 @@ def test_t_logpdf_matches_scipy():
 
 
 def test_phi_names_group_rates_by_period():
-    assert bmw.phi_names_for("net", 4, 1, ["a", "b"]) == ["rate_1", "rate_2", "rate_3", "a", "b"]
-    assert bmw.phi_names_for("coev", 3, 2, ["a"]) == [
+    assert cli.phi_names_for(4, 1, ["a", "b"]) == ["rate_1", "rate_2", "rate_3", "a", "b"]
+    assert cli.phi_names_for(3, 2, ["a"]) == [
         "rate_net_1", "rate_beh_1", "rate_net_2", "rate_beh_2", "a",
     ]
 
@@ -234,7 +238,7 @@ def test_rsiena_compare_maps_names_and_reports_the_unmatched(tmp_path):
         ),
         encoding="utf-8",
     )
-    got, missing = bmw.rsiena_compare(
+    got, missing = bmr.rsiena_compare(
         p, ["rate_1", "density", "altX(v)", "simZ", "quad", "recip"]
     )
     assert got["rate_1"] == (5.0, 0.5)

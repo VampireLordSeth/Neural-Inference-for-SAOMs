@@ -150,3 +150,11 @@ def test_auxiliary_returns_the_four_statistics_with_consistent_totals():
     assert (aux["indegree"].sum(axis=1) == 12).all()
     assert (aux["triad census"].sum(axis=1) == 220).all()
     assert (aux["geodesic"].sum(axis=1) == 132).all()
+
+
+def test_embedded_triad_table_matches_a_fresh_networkx_build():
+    """The table in the module is a generated copy. If it ever drifts from what networkx
+    says, every triad census silently changes, so check the copy against its source."""
+    from saomsim.gof import build_triad_lookup
+
+    np.testing.assert_array_equal(triad_lookup(), build_triad_lookup())

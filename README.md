@@ -110,10 +110,23 @@ Headline numbers so far:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"                                  # NumPy only; add ".[torch]" for the GPU backend
+pip install saomsim                                      # simulator: NumPy and SciPy only
+pip install "saomsim[fit]"                               # + torch and sbi, to read a panel
+```
+
+Or from a clone, for the research scripts and the test suite:
+
+```bash
+pip install -e ".[dev,fit]"
 pytest -q -m "not slow"
 python examples/quickstart.py
 ```
+
+`saomsim` on its own is the simulator and the goodness-of-fit statistics, with no
+deep-learning stack. `[fit]` adds what is needed to *load* a trained estimator
+(sbi defines the class the saved file refers to) and installs the `saom-fit`
+command. `MODELS.md` says which estimator suits which data, and what each one's
+range is.
 
 `examples/quickstart.py` simulates networks, shows that reciprocity and
 homophily parameters do what their names say, and recovers known parameters
@@ -159,12 +172,14 @@ about half a second. `python benchmarks/fit.py --help` has the details.
 
 ### Panels that are not three waves
 
-`fit.py` wants the wave count its estimator was trained for. `multiwave.py` does
-not, and reads a panel of any length with the **two**-wave estimator:
+`fit.py` wants the wave count its estimator was trained for. `saom-fit` does not,
+and reads a panel of any length with the **two**-wave estimator:
 
 ```bash
-python benchmarks/multiwave.py --posterior data/npe_m5c.pt \
-    --waves-csv w1.csv w2.csv w3.csv w4.csv --v v.csv --g g.csv
+saom-fit --waves w1.csv w2.csv w3.csv w4.csv --v v.csv --g g.csv \
+         --posterior npe_m5c.pt                      # network model, four waves
+saom-fit --waves w1.csv w2.csv w3.csv --behaviour z.csv \
+         --posterior npe_coev_m5c.pt                 # network x behaviour
 ```
 
 A SAOM's likelihood factorises over periods and our priors are flat on a box, so

@@ -29,8 +29,13 @@ def main():
     ap.add_argument("--n-min", type=int, default=20)
     ap.add_argument("--n-max", type=int, default=80)
     ap.add_argument("--rate-max", type=float, default=12.0)
-    ap.add_argument("--start", default="m2", choices=["m2", "sparse", "survey"], help="start-network regime")
-    ap.add_argument("--box", default="default", choices=["default", "sparse"], help="effect prior box")
+    ap.add_argument(
+        "--start", default="m2", choices=["m2", "sparse", "survey"],
+        help="start-network regime"
+    )
+    ap.add_argument(
+        "--box", default="default", choices=["default", "sparse"], help="effect prior box"
+    )
     args = ap.parse_args()
 
     backend = args.backend

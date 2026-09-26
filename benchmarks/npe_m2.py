@@ -22,7 +22,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table  # noqa: E402
-from benchmarks.m2 import glasgow_as_m2, m2_prior, s50_as_m2  # noqa: E402
+from benchmarks.m2 import glasgow_as_m2, s50_as_m2  # noqa: E402
 from saomsim.population import (  # noqa: E402
     load_m2_summaries,
     summary_subset,

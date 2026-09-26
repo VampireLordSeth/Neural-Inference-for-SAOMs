@@ -41,228 +41,19 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from saomsim.cli import check_n, csv_views, phi_names_for  # noqa: E402
 from saomsim.multiwave import m2_period_views, n_periods  # noqa: E402
 from saomsim.population import m2_summary_names  # noqa: E402
-
-
-def load_posterior(path, device="cpu"):
-    """Load an sbi posterior saved on any device and pin it to ``device``.
-
-    A posterior trained on the GPU carries its device tag into the pickle, and asking it
-    for a density on a CPU-only machine then fails inside torch rather than anywhere
-    informative.
-    """
-    p = torch.load(path, weights_only=False, map_location=device)
-    p._device = device
-    for attr in ("potential_fn", "posterior_estimator"):
-        obj = getattr(p, attr, None)
-        if obj is not None and hasattr(obj, "device"):
-            try:
-                obj.device = device
-            except (AttributeError, RuntimeError):
-                pass
-    return p
-
-
-def period_posteriors(post, views, draws=4000, seed=0):
-    """(P, d_x) conditioning vectors -> (P, draws, d_theta) per-period posterior samples."""
-    torch.manual_seed(seed)
-    X = torch.as_tensor(np.asarray(views), dtype=torch.float32)
-    return np.stack(
-        [
-            post.sample((draws,), x=X[w : w + 1], show_progress_bars=False).cpu().numpy()
-            for w in range(len(X))
-        ]
-    )
-
-
-def selectors(P, n_rate, n_eff):
-    """A_w: (n_rate + n_eff, dim_phi), picking (rate_w, beta) out of phi."""
-    dim = P * n_rate + n_eff
-    A = np.zeros((P, n_rate + n_eff, dim))
-    for w in range(P):
-        for j in range(n_rate):
-            A[w, j, w * n_rate + j] = 1.0
-        for j in range(n_eff):
-            A[w, n_rate + j, P * n_rate + j] = 1.0
-    return A
-
-
-def gaussian_product(samples, n_rate):
-    """Closed-form Gaussian approximation to the product, as (mean, cov, selectors)."""
-    P, _, d = samples.shape
-    n_eff = d - n_rate
-    A = selectors(P, n_rate, n_eff)
-    dim = P * n_rate + n_eff
-    Lam, h = np.zeros((dim, dim)), np.zeros(dim)
-    for w in range(P):
-        mu = samples[w].mean(0)
-        S = np.cov(samples[w], rowvar=False) + 1e-9 * np.eye(d)
-        Si = np.linalg.inv(S)
-        Lam += A[w].T @ Si @ A[w]
-        h += A[w].T @ Si @ mu
-    cov = np.linalg.inv(Lam + 1e-9 * np.eye(dim))
-    return cov @ h, cov, A
-
-
-def t_logpdf(x, mu, cov, df):
-    from scipy.linalg import solve_triangular
-    from scipy.special import gammaln
-
-    d = len(mu)
-    L = np.linalg.cholesky(cov)
-    z = solve_triangular(L, (x - mu).T, lower=True)
-    m = (z**2).sum(0)
-    return (
-        gammaln((df + d) / 2)
-        - gammaln(df / 2)
-        - 0.5 * d * np.log(df * np.pi)
-        - np.log(np.diag(L)).sum()
-        - 0.5 * (df + d) * np.log1p(m / df)
-    )
-
-
-def t_sample(mu, cov, df, N, rng):
-    d = len(mu)
-    L = np.linalg.cholesky(cov)
-    z = rng.standard_normal((N, d))
-    u = rng.chisquare(df, N) / df
-    return mu + (z / np.sqrt(u)[:, None]) @ L.T
-
-
-def log_target(post, phi, views, A, batch=50000):
-    """sum_w log q_w(A_w phi). The flow returns -inf outside the box, so the box needs
-    no separate enforcement."""
-    X = torch.as_tensor(np.asarray(views), dtype=torch.float32)
-    total = np.zeros(len(phi))
-    for w in range(len(A)):
-        th_all = phi @ A[w].T
-        out = np.empty(len(phi))
-        for s in range(0, len(phi), batch):
-            th = torch.as_tensor(th_all[s : s + batch], dtype=torch.float32)
-            with torch.no_grad():
-                out[s : s + batch] = (
-                    post.log_prob(th, x=X[w : w + 1], norm_posterior=False).cpu().numpy()
-                )
-        total += out
-    return total
-
-
-def combine(
-    post,
-    views,
-    n_rate,
-    draws=10000,
-    proposal=200000,
-    df=8.0,
-    inflate=1.0,
-    min_ess=500,
-    seed=0,
-    verbose=True,
-):
-    """Sample the product of the per-period posteriors. Returns (phi, info).
-
-    ``inflate`` defaults to 1.0 rather than the usual widening: the Gaussian product is
-    already *wider* than the true product, because the flows have lighter-than-Gaussian
-    tails where they concentrate, so inflating it only wastes proposals. Measured on the
-    s50 three-wave panel, inflating by 1.5-4.0 cut the effective sample size by a factor
-    of two to twenty in both the network and the co-evolution models.
-
-    ``min_ess`` is an absolute number of effective draws, not a fraction, since that is
-    what the posterior summaries actually rest on -- 3,000 effective draws out of a poorly
-    matched 200,000 is a perfectly usable posterior, while 2 % of 5,000 is not.
-    """
-    rng = np.random.default_rng(seed)
-    per = period_posteriors(post, views, draws=max(4000, draws // 2), seed=seed)
-    mu, cov, A = gaussian_product(per, n_rate)
-
-    prop = t_sample(mu, cov * inflate, df, proposal, rng)
-    lw = log_target(post, prop, views, A) - t_logpdf(prop, mu, cov * inflate, df)
-    finite = np.isfinite(lw)
-    ess = 0.0
-    if finite.any():
-        lw = np.where(finite, lw, -np.inf) - lw[finite].max()
-        w = np.exp(lw)
-        if w.sum() > 0 and np.isfinite(w.sum()):
-            w /= w.sum()
-            ess = 1.0 / (w**2).sum()
-    info = {
-        "ess": ess,
-        "ess_frac": ess / proposal,
-        "per_period": per,
-        "proposal_mean": mu,
-        "proposal_cov": cov,
-    }
-    if ess >= min_ess:
-        idx = rng.choice(len(prop), size=draws, replace=True, p=w)
-        info["method"] = "importance"
-        return prop[idx], info
-    if verbose:
-        print(f"  ESS {ess:.0f} effective draws below {min_ess}; falling back to Metropolis")
-    phi, acc, rhat = metropolis(post, views, A, mu, cov, draws, rng)
-    info["method"], info["accept"], info["rhat"] = "metropolis", acc, rhat
-    return phi, info
-
-
-def split_rhat(chain):
-    """Split-Rhat per parameter for a (n_draws, n_chains, d) array."""
-    n, m, d = chain.shape
-    h = n // 2
-    if h < 2:
-        return np.full(d, np.nan)
-    s = np.concatenate([chain[:h], chain[h : 2 * h]], axis=1)  # (h, 2m, d)
-    W = s.var(0, ddof=1).mean(0)
-    B = h * s.mean(0).var(0, ddof=1)
-    var = (h - 1) / h * W + B / h
-    with np.errstate(divide="ignore", invalid="ignore"):
-        return np.sqrt(np.where(W > 0, var / W, np.nan))
-
-
-def metropolis(post, views, A, mu, cov, draws, rng, chains=8, thin=5, burn=400):
-    """Random-walk Metropolis on the same product target, seeded from the proposal.
-
-    The step size adapts during burn-in towards the 0.234 acceptance rate that is optimal
-    for a random walk in this many dimensions; adaptation stops before the first kept
-    draw, so what is kept is a proper Markov chain. Returns split-Rhat alongside the
-    draws, because an unmixed 14-dimensional chain otherwise looks just like a good one.
-    """
-    d = len(mu)
-    base = np.linalg.cholesky(cov)
-    scale = 2.38 / np.sqrt(d)
-    cur = mu + rng.standard_normal((chains, d)) @ base.T * 0.5
-    lp = log_target(post, cur, views, A)
-    keep, acc, n_acc = [], 0.0, 0
-    n_iter = draws * thin // chains + burn
-    for it in range(n_iter):
-        prop = cur + rng.standard_normal((chains, d)) @ base.T * scale
-        lpp = log_target(post, prop, views, A)
-        take = np.log(rng.random(chains)) < (lpp - lp)
-        cur[take], lp[take] = prop[take], lpp[take]
-        if it < burn:
-            scale *= np.exp(0.5 * (take.mean() - 0.234) / np.sqrt(max(20.0, it + 1)))
-        else:
-            acc += take.mean()
-            n_acc += 1
-            if it % thin == 0:
-                keep.append(cur.copy())
-    chain = np.asarray(keep)  # (n_kept, chains, d)
-    return chain.reshape(-1, d)[:draws], acc / max(n_acc, 1), split_rhat(chain)
-
-
-def period_spread(per, n_rate):
-    """Per shared effect, max over period pairs of |mu_a - mu_b| / sqrt(s_a^2 + s_b^2)."""
-    P = len(per)
-    eff = per[:, :, n_rate:]
-    mu, sd = eff.mean(1), eff.std(1, ddof=1)
-    out = np.zeros(eff.shape[2])
-    for a in range(P):
-        for b in range(a + 1, P):
-            out = np.maximum(out, np.abs(mu[a] - mu[b]) / np.sqrt(sd[a] ** 2 + sd[b] ** 2))
-    return out
+from saomsim.product import (  # noqa: E402
+    combine,
+    load_posterior,
+    metropolis,
+    period_spread,
+    selectors,
+)
 
 
 def net_views(real, waves):
@@ -307,83 +98,6 @@ def coev_views(real, waves):
     return views, NET_EFFECTS + SEL_EFFECTS + BEH_EFFECTS, 2, waves - 1, Xs[0].shape[1]
 
 
-TRAINED_N = {  # two-wave estimator -> the n range its population actually covered
-    "npe_m5.pt": (30, 100),
-    "npe_m5b.pt": (30, 100),
-    "npe_m5c.pt": (30, 100),
-    "npe_m5c_mom.pt": (30, 100),
-    "npe_coev_m5.pt": (30, 100),
-    "npe_coev_m5b.pt": (30, 100),
-    "npe_coev_m5c.pt": (30, 100),
-}
-
-
-def check_n(posterior_path, n):
-    """Warn if the panel's n falls outside the estimator's training range.
-
-    The screening references band n in steps of 20, so they cannot tell n = 25 from
-    n = 35 and will not raise this themselves; the range is recorded here instead.
-    Amortized estimators extrapolate silently and confidently, so an out-of-range n has
-    to be stated rather than left to the reader.
-    """
-    rng = TRAINED_N.get(Path(posterior_path).name)
-    if rng is None:
-        print(f"  n = {n}; training range of {Path(posterior_path).name} not recorded")
-        return None
-    lo, hi = rng
-    if lo <= n <= hi:
-        return True
-    print(
-        f"  ** n = {n} is outside this estimator's training range [{lo}, {hi}]. The "
-        f"posterior below is an extrapolation and should not be read as calibrated. **"
-    )
-    return False
-
-
-def csv_views(paths, v_path=None, g_path=None, beh_path=None):
-    """Any panel from CSVs -> (views, effect names, n_rate, periods). Co-evolution when
-    ``beh_path`` is given, network-only otherwise."""
-    from benchmarks.fit import load_waves
-
-    Xs = load_waves(paths)
-    W = len(Xs)
-    if beh_path is None:
-        from saomsim.population import real_data_summary
-
-        if not (v_path and g_path):
-            raise SystemExit("the network model needs --v and --g")
-        v = np.loadtxt(v_path, delimiter=",", ndmin=1)
-        g = np.loadtxt(g_path, delimiter=",", ndmin=1)
-        g = g - g.min()
-        S, model = real_data_summary(Xs[0], Xs[1:], v, g)
-        names = m2_summary_names(model, W)
-        views = m2_period_views(S, names, model, transform=True)[0]
-        return views, list(model.labels), 1, W - 1, Xs[0].shape[0]
-
-    from saomsim.behaviour import BehaviourSpec, spec_from_data
-    from saomsim.multiwave import coev_period_views
-    from saomsim.population_coev import (
-        BEH_EFFECTS,
-        NET_EFFECTS,
-        SEL_EFFECTS,
-        beh_model,
-        coev_summary_names,
-        net_model,
-        transform_coev,
-    )
-
-    Z = np.loadtxt(beh_path, delimiter=",", ndmin=2)
-    if Z.shape[1] != W:
-        raise SystemExit(f"behaviour has {Z.shape[1]} waves but {W} networks were given")
-    sp = spec_from_data(Z, 1, 5)
-    spec = BehaviourSpec(1, 5, np.array([sp.zbar]), np.array([sp.sim_mean]))
-    model, bmodel = net_model(), beh_model()
-    views = coev_period_views([X[None] for X in Xs], [Z[:, w][None] for w in range(W)],
-                              spec, model, bmodel)[0]
-    views = transform_coev(views, coev_summary_names(2), model)
-    return views, NET_EFFECTS + SEL_EFFECTS + BEH_EFFECTS, 2, W - 1, Xs[0].shape[0]
-
-
 REAL_COEV = {
     "s50": ([Path(__file__).parent / f"s50{w}.csv" for w in (1, 2, 3)],
             Path(__file__).parent / "s50a.csv"),
@@ -421,21 +135,6 @@ def rsiena_compare(path, phi_names, net="net", beh="alc"):
         else:
             missing.append((nm, key))
     return out, missing
-
-
-def phi_names_for(kind, waves, n_rate, eff_names):
-    """Names for phi = (rates of period 1, ..., rates of period P, shared effects).
-
-    Note the rate order: phi groups rates *by period*, so co-evolution reads
-    (rate_net_1, rate_beh_1, rate_net_2, rate_beh_2, ...), whereas
-    ``coev_theta_names`` groups them by kind. They are not interchangeable.
-    """
-    P = waves - 1
-    if n_rate == 1:
-        rates = [f"rate_{w + 1}" for w in range(P)]
-    else:
-        rates = [f"{k}_{w + 1}" for w in range(P) for k in ("rate_net", "rate_beh")]
-    return rates + list(eff_names)
 
 
 def main():
@@ -502,7 +201,7 @@ def main():
             f"largest standardised gap in the means {np.abs(gap).max():.3f}"
         )
 
-    phi_names = phi_names_for(a.model, n_waves, n_rate, eff_names)
+    phi_names = phi_names_for(n_waves, n_rate, eff_names)
     per = info["per_period"]
     if len(phi_names) != phi.shape[1]:
         raise SystemExit(

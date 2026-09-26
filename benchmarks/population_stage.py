@@ -132,13 +132,26 @@ def main():
             ref[row["parameter"]] = row
         # our names -> siena08 labels; default: match on the effect name after the colon
         ref = {
-            nm: ref.get(mp.get(nm) or next((k for k in ref if k.split(":")[-1] == nm.split("(")[0].replace("rate_net_", "rate_")), ""), None)
+            nm: ref.get(
+                mp.get(nm)
+                or next(
+                    (
+                        k for k in ref
+                        if k.split(":")[-1] == nm.split("(")[0].replace("rate_net_", "rate_")
+                    ),
+                    "",
+                ),
+                None,
+            )
             for nm in names
         }
 
     rng = np.random.default_rng(a.seed)
     mu_draws, tau_draws = np.empty((P, a.draws)), np.empty((P, a.draws))
-    hdr = f"{'parameter':<12}{'mu':>8}{'90% mu':>18}{'tau':>8}{'90% tau':>18}{'s_med':>8}{'resolved':>10}"
+    hdr = (
+        f"{'parameter':<12}{'mu':>8}{'90% mu':>18}{'tau':>8}"
+        f"{'90% tau':>18}{'s_med':>8}{'resolved':>10}"
+    )
     if a.siena08:
         hdr += f"{'siena08 mu':>12}{'sigma':>8}"
     print(hdr)

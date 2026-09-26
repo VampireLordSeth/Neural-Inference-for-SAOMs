@@ -1,19 +1,47 @@
 [project]
 name = "saomsim"
-version = "0.1.0"
-description = "Batched simulator for stochastic actor-oriented models"
+version = "0.2.0"
+description = "Batched simulator and amortized posterior estimation for stochastic actor-oriented models"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.24"]
+license = { text = "MIT" }
+keywords = ["social networks", "SAOM", "RSiena", "simulation-based inference", "amortized inference"]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+# numpy runs the simulator; scipy is used by the product sampler (multivariate t density,
+# triangular solves). Neither torch nor sbi is required to *simulate*, so they are extras:
+# a user who only wants the simulator should not have to install a deep-learning stack.
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pytest-xdist", "ruff"]
+# Reading a panel with a trained estimator. torch loads the saved flow; sbi defines the
+# posterior class the pickle refers to, so it is needed even just to load one.
+fit = ["torch>=2.2", "sbi>=0.23"]
+# Training new estimators, which additionally wants sbi's diagnostics and plots.
+train = ["torch>=2.2", "sbi>=0.23", "matplotlib>=3.7"]
 torch = ["torch>=2.2"]
+dev = ["pytest>=7", "pytest-xdist", "ruff", "networkx>=3", "scipy>=1.10"]
+
+[project.scripts]
+# Read a panel of any number of waves with a trained two-wave estimator.
+saom-fit = "saomsim.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/VampireLordSeth/Neural-Inference-for-SAOMs"
+Issues = "https://github.com/VampireLordSeth/Neural-Inference-for-SAOMs/issues"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
+# Only saomsim ships. `benchmarks/` holds the research scripts and the RSiena comparisons;
+# it is deliberately not installed, both because it is not a name anyone should occupy on
+# PyPI and because it reaches for datasets that are not ours to redistribute.
 packages = ["saomsim"]
 
 [tool.ruff]

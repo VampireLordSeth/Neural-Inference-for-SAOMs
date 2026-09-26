@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
+from conftest import requires_s50
 from saomsim.behaviour import BehaviourSpec
 from saomsim.population import N_MAX, unpack
-from conftest import requires_s50
 from saomsim.population_coev import (
     BEH_EFFECTS,
     NET_EFFECTS,
