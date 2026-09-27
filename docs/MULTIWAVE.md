@@ -198,6 +198,34 @@ for a period, so that what period 2 conditions on is in distribution. That is a
 population change, not a change to any of this, and it is deliberately **not** folded
 into the M6 run now training, which varies n alone so that its effect stays attributable.
 
+### The joint product on the wider population, and why "0 of 9 rejected" is the wrong headline
+
+400 three-wave panels from M6's own population, combined as usual:
+
+| | `npe_m5c`, n ∈ [30, 100] | `npe_m6`, n ∈ [20, 150] |
+|---|---|---|
+| KS rejections | 2 of 9 | **0 of 9** |
+| mean 90 % coverage | 0.898 | **0.885** |
+| parameters below 0.885 | 1 of 9 | **4 of 9** |
+| median ESS | 10 % | 8 % |
+
+Read the first row alone and the wider population looks better calibrated, which would be
+a strange thing for it to be. The second and third rows say the opposite: M6's joint
+intervals are systematically **too narrow**, averaging a full standard error below nominal
+where m5c averages on it.
+
+The two rows can disagree because they test different things. The KS statistic tests the
+*shape* of the rank distribution and is most sensitive to a tilt; coverage tests the
+*width* of the interval. A posterior that is uniformly a little over-confident produces a
+mild U-shape, and a mild U-shape at 400 draws is something the KS test has very little
+power against. Quoting the rejection count without the coverage would have inverted the
+conclusion here, which is a good reason to report both every time.
+
+The one parameter carrying a visible tilt is `rate_2` (mean rank 0.534, KS p 0.053), and
+it is the one the per-period test predicts: period 2's rate is exactly what the evolved
+start biases. The shared effects average over both periods, so their tilts partly cancel
+in the product, which is why the joint table looks milder than the per-period one below.
+
 ### The same test on a wider population (M6, 2026-09-27)
 
 `npe_m6.pt` is the same population widened in n alone, from [30, 100] to [20, 150]
