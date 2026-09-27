@@ -18,11 +18,27 @@ than being shielded from it.
 
 ---
 
-## `npe_m5c.pt` — network model, two waves *(the default)*
+## `npe_m6.pt` — network model, two waves, n 20–150 *(the widest)*
 
-The one to use unless you need something it does not cover. It reads **any number of
-waves** through `saom-fit`, because the per-period posteriors multiply
-(`docs/MULTIWAVE.md`).
+Same population as `npe_m5c.pt` in every respect except the size range, so the two are
+directly comparable and any difference is attributable to **n** alone. Use this one when
+your panel falls outside [30, 100]; use `npe_m5c.pt` when it does not, because its
+calibration on the narrower range is better.
+
+| | |
+|---|---|
+| **returns** | 8 parameters, as `npe_m5c.pt` |
+| **actors** | n ∈ **[20, 150]** |
+| **priors, starts, covariates** | identical to `npe_m5c.pt` below |
+| **training** | 10⁷ panels in ten shards, 5 h 34 m to generate (480–547 panels/s), **10 h 56 m** to train |
+| **calibration** | 4,000 fresh draws: **3 of 8 rank distributions rejected** (sameX 0.001, recip 0.003, density 0.034), mean ranks 0.487–0.515, but coverage nominal — 90 % 0.889–0.901, 95 % 0.943–0.951 against binomial se 0.005 and 0.003, with no drift across n bands |
+| **read this** | at the same 10⁷ budget, `npe_m5c.pt` on [30, 100] rejects **0 of 8**. A wider size range is a harder learning problem and the same budget buys less calibration when spread over it. The tilts are small (≈0.015 in mean rank) and coverage does not suffer, so the estimator is usable — but on [30, 100] prefer `npe_m5c.pt` |
+| **against RSiena** | Knecht klas12b, four waves, n = 25: largest \|z\| **0.62** over ten parameters (against 1.04 when `npe_m5c` had to extrapolate). Glasgow, three waves, n = 129: largest \|z\| 1.62, on the two rates, which read low |
+
+## `npe_m5c.pt` — network model, two waves *(the default on [30, 100])*
+
+The one to use when your panel is in its range. It reads **any number of waves** through
+`saom-fit`, because the per-period posteriors multiply (`docs/MULTIWAVE.md`).
 
 | | |
 |---|---|
@@ -92,6 +108,7 @@ explain what each one established. Do not use them for new data.
 | your data | estimator |
 |---|---|
 | 30–100 actors, network only, any number of waves | `npe_m5c.pt` |
+| 20–150 actors, network only, any number of waves | `npe_m6.pt` (outside [30, 100]; inside it, prefer `npe_m5c.pt`) |
 | 30–100 actors, network and a 1–5 behaviour, any number of waves | `npe_coev_m5c.pt` |
 | 20–200 actors, network only, exactly three waves | `npe_m4b.pt` via `benchmarks/fit.py` |
 | 20–200 actors, co-evolution, exactly three waves | `npe_coev_m4_10m.pt` via `benchmarks/fit.py` |

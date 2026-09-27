@@ -198,6 +198,32 @@ for a period, so that what period 2 conditions on is in distribution. That is a
 population change, not a change to any of this, and it is deliberately **not** folded
 into the M6 run now training, which varies n alone so that its effect stays attributable.
 
+### The same test on a wider population (M6, 2026-09-27)
+
+`npe_m6.pt` is the same population widened in n alone, from [30, 100] to [20, 150]
+(`MODELS.md`). Repeating the per-period test on 1,000 panels from *its* population makes
+the evolved-start effect look worse, not better:
+
+| | period 1 (population start) | period 2 (evolved start) |
+|---|---|---|
+| rate | p 0.428, rank 0.490 | **p 0.023, rank 0.529** |
+| density | p 0.603, rank 0.493 | **p 0.000, rank 0.551** |
+| transTrip | p 0.930, rank 0.494 | **p 0.001, rank 0.466** |
+| sameX(g) | p 0.988, rank 0.500 | **p 0.031, rank 0.522** |
+| overall | 7 of 8 uniform | **4 of 8 rejected** |
+
+Against `npe_m5c`'s two rejections in period 2, on the narrower range. Density's tilt
+grows from 0.528 to 0.551 and transitive triplets acquires one in the opposite direction
+(0.466, so read *high* where density and rate are read *low*). Period 1 stays clean on
+both populations.
+
+That is the expected direction if the cause is what we claim it is. A wider range of n
+means a wider range of evolved networks for period 2 to start from, and none of them are
+in the training population either way; the mismatch simply has more room. It also means
+the fix — a start regime that includes networks evolved for a period — matters *more* as
+the population widens, not less, which is worth knowing before anyone trains a wider one
+still.
+
 `sameX` is a separate matter: it fails in period 1 as well (p = 0.009, mean rank 0.475
 in both runs), so its weakness
 belongs to `npe_m5c` and is merely inherited here.
@@ -268,17 +294,29 @@ unlike Glasgow, where the amortized estimator reads both high against method of 
 Both out-of-range panels agree with RSiena about as well as the in-range one, at the two
 opposite ends of the range:
 
-| panel | n | vs training range [30, 100] | largest \|z\| vs RSiena |
-|---|---|---|---|
-| s50, 3 waves | 50 | inside | 0.68 |
-| Knecht, 4 waves | 25 | below | 1.04 |
-| Knecht, 4 waves, co-evolution | 25 | below | 1.09 |
-| Glasgow, 3 waves | 129 | above | 1.14 |
+| panel | n | estimator | in range? | largest \|z\| vs RSiena |
+|---|---|---|---|---|
+| s50, 3 waves | 50 | `npe_m5c` | yes | 0.68 |
+| Knecht, 4 waves | 25 | `npe_m5c` | **no**, below | 1.04 |
+| Knecht, 4 waves | 25 | **`npe_m6`** | **yes** | **0.62** |
+| Glasgow, 3 waves | 129 | `npe_m5c` | **no**, above | 1.14 |
+| Glasgow, 3 waves | 129 | **`npe_m6`** | **yes** | **1.62** |
+| Knecht, 4 waves, co-evolution | 25 | `npe_coev_m5c` | **no**, below | 1.09 |
 
-That is reassuring but it is **not** calibration, and it should not be read as licence to
-ignore the warning. Agreeing with a point estimate says nothing about whether the
-posterior's *width* is right, which is what SBC measures and what only holds on [30, 100].
-The M6 population exists to make these three legitimate rather than merely lucky.
+`npe_m6` (n ∈ [20, 150], trained 2026-09-27) makes the two network demonstrations
+legitimate rather than lucky, and they move in opposite directions. Knecht improves
+markedly, from 1.04 to **0.62** across ten parameters. Glasgow gets worse, to **1.62**,
+carried by the two rates, which read low.
+
+Neither is cause for alarm, and the second is worth stating carefully rather than
+explaining away. Under perfect calibration the largest of nine standardised differences
+is typically around 1.9, so 1.62 is unremarkable and 0.62 is unusually good; a single
+panel's largest \|z\| is a noisy statistic and neither number should carry much weight on
+its own. What the M6 run buys is not better agreement — it is the right to quote these
+comparisons at all, because the estimator is now calibrated where the data sit.
+
+The co-evolution row remains an extrapolation: M6 covers the network model only, and a
+co-evolution population at the same width would be another day of compute.
 
 ### Co-evolution efficiency
 
