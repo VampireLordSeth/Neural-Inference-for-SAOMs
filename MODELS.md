@@ -122,10 +122,19 @@ that apply one specification to many networks, not exploratory work on one netwo
 
 ## Getting the files
 
-The estimators are not in git. `benchmarks/fetch_data.py` fetches the *datasets*; the
-trained estimators are build artefacts of the runs documented in `docs/M4_RESULTS.md` and
-`docs/M5_RESULTS.md` and are published separately. Until that publication exists, they can
-be regenerated end to end:
+The estimators are not in git; they are published as release assets and archived on
+Zenodo. `benchmarks/fetch_data.py` fetches the *datasets*, `benchmarks/fetch_models.py`
+fetches these:
+
+    pip install "saomsim[fit]"
+    python benchmarks/fetch_models.py            # the three you probably want
+    python benchmarks/fetch_models.py --all      # all twelve
+    python benchmarks/fetch_models.py --list     # what is published, with checksums
+
+Downloads are verified against SHA256. That check is on by default because a truncated or
+substituted flow returns posteriors perfectly happily and gives no sign of trouble.
+
+They can also be regenerated end to end, which is the ~13 GPU-hour path:
 
     python benchmarks/generate_m2.py --N 1000000 --seed 30 --waves 2 \
         --n-min 30 --n-max 100 --rate-max 12 --start survey --box sparse \

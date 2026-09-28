@@ -33,3 +33,6 @@ logs/
 build/
 dist/
 *.egg-info/
+
+# staged release payload (built by hand, published as release assets)
+release/

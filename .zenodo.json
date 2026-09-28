@@ -1,0 +1,25 @@
+{
+  "title": "saomsim: amortized posterior estimation for stochastic actor-oriented models",
+  "description": "<p>A batched simulator for stochastic actor-oriented models (SAOMs) and amortized neural posterior estimators trained on it, with the calibration evidence and RSiena comparisons behind them.</p><p>An estimator is trained once on a population of simulated panels and then returns a calibrated posterior for a new panel in a fraction of a second, against seconds to hours for a simulation-based fit. Because the SAOM likelihood factorises over periods and the priors are flat on a box, a single two-wave estimator reads a panel of any length by multiplying its per-period posteriors, so the wave count is a property of the data rather than of the instrument.</p><p>The archive includes twelve trained estimators covering the network model and the network-behaviour co-evolution model over 20 to 200 actors. Each is documented in MODELS.md with the range of n outside which its readings should not be trusted, its calibration by simulation-based calibration and coverage, and its known weaknesses. The benchmark datasets are not redistributed; fetch scripts obtain them from the studies that collected them.</p>",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "keywords": [
+    "social networks",
+    "stochastic actor-oriented model",
+    "SAOM",
+    "RSiena",
+    "simulation-based inference",
+    "amortized inference",
+    "normalizing flows",
+    "network dynamics",
+    "social selection and influence"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/VampireLordSeth/Neural-Inference-for-SAOMs",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}
