@@ -155,7 +155,41 @@ def test_effect_validation():
         Effect("density", "grp")
     with pytest.raises(KeyError):
         Model([("sameX", "missing")], {"grp": np.zeros(4)})
-    assert set(KINDS) == {"density", "recip", "transTrip", "cycle3", "sameX", "altX", "egoX"}
+    # Pinned so that adding an effect is a deliberate act rather than a side effect.
+    assert set(KINDS) == {
+        "density", "recip", "transTrip", "cycle3", "outTrunc", "sameX", "altX", "egoX"
+    }
+
+
+def test_parametric_effect_validation():
+    """outTrunc(c) carries a numeric cap; nothing else may, and it may not be omitted."""
+    e = Effect("outTrunc", None, 5)
+    assert e.label == "outTrunc(5)"
+    assert e.parameter == 5
+
+    with pytest.raises(ValueError, match="needs a numeric parameter"):
+        Effect("outTrunc")
+    with pytest.raises(ValueError, match="positive whole number"):
+        Effect("outTrunc", None, 0)
+    with pytest.raises(ValueError, match="positive whole number"):
+        Effect("outTrunc", None, 2.5)
+    with pytest.raises(ValueError, match="takes no parameter"):
+        Effect("density", None, 3)
+    with pytest.raises(ValueError, match="takes no covariate"):
+        Effect("outTrunc", "grp", 5)
+
+
+def test_out_trunc_statistic_is_the_capped_out_degree():
+    """min(out-degree, c), summed over actors, and flat once every actor is at the cap."""
+    from saomsim import statistics
+
+    n = 6
+    X = np.zeros((1, n, n), dtype=np.int8)
+    X[0, 0, 1:4] = 1  # actor 0 has three out-ties
+    X[0, 1, 2:] = 1  # actor 1 has four
+    for c, want in ((2, 2 + 2), (3, 3 + 3), (4, 3 + 4), (9, 3 + 4)):
+        m = Model([("outTrunc", None, c)])
+        assert statistics(X, m)[0, 0] == want, c
 
 
 def test_model_labels_and_needs():
@@ -806,3 +840,50 @@ def test_estimate_rm_recovers_from_one_panel():
     assert res.converged, res.table(truth)
     z = (res.theta - truth) / res.se
     assert np.all(np.abs(z) < 3.0), res.table(truth)
+
+
+def test_out_trunc_change_statistics_match_the_reference():
+    """The add/remove asymmetry is the part that is easy to get wrong: adding a tie counts
+    when the actor has fewer than c ties, removing one counts when it has at most c, and
+    both reduce to the same contribution once the sign is applied."""
+    from saomsim import reference
+    from saomsim.backend import NUMPY
+
+    rng = np.random.default_rng(11)
+    worst = 0.0
+    for _ in range(12):
+        n, c = int(rng.integers(5, 11)), int(rng.integers(1, 6))
+        x = (rng.random((n, n)) < rng.uniform(0.1, 0.6)).astype(np.int8)
+        np.fill_diagonal(x, 0)
+        eff = ["density", "recip", ("outTrunc", None, c)]
+        m = Model(eff)
+        for i in range(n):
+            ref = reference.change_statistics_row(x, i, eff)
+            rows = NUMPY.row_products(x[None].astype(np.float32), np.array([i]))
+            got = m.change_statistics(rows, np.array([i]), NUMPY)[0]
+            worst = max(worst, float(np.abs(ref - got).max()))
+    assert worst == 0.0, worst
+
+
+def test_out_trunc_concentrates_the_degree_distribution():
+    """At a matched mean out-degree the effect should move mass below the cap, which is
+    the whole reason for adding it (docs/GOF_RESULTS.md)."""
+    from saomsim import simulate_period
+
+    rng = np.random.default_rng(5)
+    n, B, cap = 40, 250, 4
+    X0 = (rng.random((B, n, n)) < 0.06).astype(np.int8)
+    for b in range(B):
+        np.fill_diagonal(X0[b], 0)
+
+    def degrees(eff, theta):
+        X1 = simulate_period(
+            X0, np.tile(theta, (B, 1)).astype(float), 5.0, Model(eff), np.random.default_rng(2)
+        )
+        return X1.sum(2)
+
+    plain = degrees(["density", "recip"], [-1.6, 1.5])
+    trunc = degrees(["density", "recip", ("outTrunc", None, cap)], [-3.6, 1.5, 2.0])
+    # comparable levels, so any difference is in the shape
+    assert abs(plain.mean() - trunc.mean()) < 0.6
+    assert (trunc > cap).mean() < (plain > cap).mean() / 2

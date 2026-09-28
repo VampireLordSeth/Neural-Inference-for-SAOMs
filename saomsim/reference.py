@@ -40,6 +40,12 @@ def actor_statistic(x: np.ndarray, i: int, effect, covariates: dict | None = Non
         for j in range(n):
             for h in range(n):
                 s += x[i, j] * x[j, h] * x[h, i]
+    elif e.kind == "outTrunc":
+        # min(out-degree, c): ties up to the cap count, further ones do not
+        d = 0.0
+        for j in range(n):
+            d += x[i, j]
+        s = min(d, float(e.parameter))
     else:
         v = _cov(covariates, e.covariate)
         if e.kind == "sameX":

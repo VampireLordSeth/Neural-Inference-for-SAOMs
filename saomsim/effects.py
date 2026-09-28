@@ -40,25 +40,42 @@ import numpy as np
 from .backend import DTYPE, NUMPY, RowProducts
 
 STRUCTURAL = ("density", "recip", "transTrip", "cycle3")
+# Effects taking a numeric parameter rather than a covariate name. outTrunc(c) has
+# statistic min(x_i+, c): ties up to c are worth having and further ones are not, which
+# is how RSiena represents a questionnaire that caps nominations (docs/GOF_RESULTS.md
+# shows the canonical effect set cannot reproduce such a degree distribution without it).
+PARAMETRIC = ("outTrunc",)
 COVARIATE = ("sameX", "altX", "egoX")
-KINDS = STRUCTURAL + COVARIATE
+KINDS = STRUCTURAL + PARAMETRIC + COVARIATE
 
 
 @dataclass(frozen=True)
 class Effect:
     kind: str
     covariate: str | None = None
+    parameter: float | None = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
             raise ValueError(f"unknown effect {self.kind!r}; known: {KINDS}")
         if self.kind in COVARIATE and self.covariate is None:
             raise ValueError(f"effect {self.kind!r} needs a covariate name")
-        if self.kind in STRUCTURAL and self.covariate is not None:
+        if self.kind not in COVARIATE and self.covariate is not None:
             raise ValueError(f"effect {self.kind!r} takes no covariate")
+        if self.kind in PARAMETRIC:
+            if self.parameter is None:
+                raise ValueError(f"effect {self.kind!r} needs a numeric parameter, e.g. "
+                                 f"('{self.kind}', None, 5)")
+            if not float(self.parameter).is_integer() or self.parameter < 1:
+                raise ValueError(f"{self.kind} takes a positive whole number of ties, "
+                                 f"got {self.parameter!r}")
+        elif self.parameter is not None:
+            raise ValueError(f"effect {self.kind!r} takes no parameter")
 
     @property
     def label(self) -> str:
+        if self.parameter is not None:
+            return f"{self.kind}({self.parameter:g})"
         return self.kind if self.covariate is None else f"{self.kind}({self.covariate})"
 
 
@@ -67,8 +84,10 @@ def as_effect(spec) -> Effect:
         return spec
     if isinstance(spec, str):
         return Effect(spec)
-    kind, cov = spec
-    return Effect(kind, cov)
+    kind, *rest = spec
+    cov = rest[0] if rest else None
+    par = rest[1] if len(rest) > 1 else None
+    return Effect(kind, cov, par)
 
 
 class Model:
@@ -137,6 +156,14 @@ class Model:
                 out[:, :, k] = rows.two_path + rows.shared_out
             elif e.kind == "cycle3":
                 out[:, :, k] = rows.back_path
+            elif e.kind == "outTrunc":
+                # min(d + 1, c) - min(d, c) for a tie that would be added, and the
+                # negative of the same for one that would be removed. Both reduce to
+                # "does this actor have fewer than c ties not counting j", because the
+                # sign is applied by change_statistics().
+                # torch accepts axis= as an alias for dim=, so this is backend-agnostic
+                deg = rows.out_row.sum(axis=-1)[:, None]
+                out[:, :, k] = backend.as_float((deg - rows.out_row) < e.parameter)
             else:
                 v = self._cov(e.covariate, B, backend)
                 if e.kind == "sameX":
@@ -185,6 +212,8 @@ class Model:
                 XX = Xf @ Xf if XX is None else XX
                 # trace(X^3) counts each 3-cycle three times; RSiena's target counts it once
                 out[:, k] = np.einsum("bij,bji->b", XX, Xf) / 3.0
+            elif e.kind == "outTrunc":
+                out[:, k] = np.minimum(Xf.sum(axis=2), e.parameter).sum(axis=1)
             else:
                 v = self._cov(e.covariate, B)
                 if e.kind == "sameX":

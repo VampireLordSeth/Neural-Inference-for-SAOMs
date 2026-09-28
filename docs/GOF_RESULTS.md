@@ -187,6 +187,101 @@ Three consequences, in order of how much they matter.
    agreement with RSiena throughout this repository bounds how large the effect can be,
    since RSiena is fitted to the same capped data with the same uncapped simulator.
 
+## The remedy, tested (2026-09-27)
+
+The section above concluded that a measurement model cannot repair the misfit and that the
+effect has to enter the dynamics — RSiena's `outTrunc(c)`, whose statistic is
+min(x_i+, c), so ties up to c are worth having and further ones are not. `outTrunc` is now
+implemented in the simulator (`saomsim/effects.py`; `Effect` gained a numeric parameter,
+and the change statistics match the brute-force reference exactly over 315 actor-rows).
+
+**It produces the missing shape.** Simulating at a matched mean out-degree of 3.50, so
+that only the *shape* differs:
+
+| out-degree | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9+ | over 5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| density + recip | 2.2 | 9.7 | 18.3 | 23.1 | 20.0 | 13.7 | 7.7 | 3.3 | 1.3 | 0.6 | 13.0 % |
+| + `outTrunc(5)` | 1.1 | 5.8 | 14.5 | 24.7 | 31.6 | 19.7 | 2.4 | 0.2 | 0.1 | 0.0 | 2.7 % |
+
+That is the hump-below-the-cap with the tail gone, against Glasgow's observed 4.7, 5.4,
+18.6, 22.5, 19.4, 16.3, 13.2 % at degrees 0–6 and nothing above. So the mechanism is the
+right one.
+
+### But the cap that matters is the one the data cannot identify
+
+Setting the threshold to six, the number of friends the questionnaire allowed, **does not
+fit**: max convergence ratio 0.844 after five runs and 23 minutes, with density at −8.35
+and `outTrunc` at +5.18 — two large offsetting values, the signature of collinearity.
+
+The reason is structural rather than numerical. Nobody exceeded the survey's limit, so
+min(x_i+, 6) equals x_i+ for *every* actor and the statistic is identical to the density
+statistic:
+
+| cap c | Glasgow actors with out-degree > c (wave 1) | |
+|---|---|---|
+| 3 | 63 of 129 (49 %) | identifiable |
+| 4 | 38 (29 %) | identifiable |
+| 5 | 17 (13 %) | weakly identifiable |
+| **6** | **0 (0 %)** | **identically density** |
+
+**The effect that would represent the nomination cap is exactly the one these data cannot
+identify, because the cap sits at the boundary of the observed support.** Identification
+requires a threshold below the real cap — which then models a soft preference against
+more than c ties rather than the hard limit the questionnaire imposed. That is a different
+claim about the world, and it should be stated as one rather than presented as *the* fix.
+
+### What it repairs, and what it does not
+
+Fitting with `outTrunc(5)` converges cleanly (ratio 0.121, one run) and the effect is
+large and well determined, 1.839 ± 0.263. Running the identical goodness-of-fit check at
+that estimate against the canonical one — same data, same statistics, same simulator, one
+effect different — separates two failures that had looked like one:
+
+| | canonical | + `outTrunc(5)` |
+|---|---|---|
+| simulated max out-degree, period 1 | 11.7 | **7.4** |
+| actors above the survey's cap of 6 | 15.4 % | **2.4 %** |
+| out-degree, period 1 | **0.001** | **0.659** |
+| out-degree, period 2 | **0.001** | **0.025** |
+| in-degree | 0.718 / 0.251 | 0.946 / 0.488 |
+| triad census | **0.001** / **0.001** | **0.003** / **0.001** |
+| geodesic | **0.002** / **0.001** | **0.004** / **0.001** |
+| rejected of 8 | 6 | 5 |
+
+**The degree misfit is repaired; the triadic and connectivity misfit is untouched.** The
+out-degree distribution goes from decisively rejected to a comfortable pass in period 1,
+and the simulator stops producing networks the survey could not have recorded. The triad
+census and the geodesic distribution barely move — the same entries carry the deviation
+(120C, 030C and 210 over-represented, distance 5 under-represented and unreachable pairs
+over-represented) at almost the same magnitude.
+
+That is a more useful answer than a clean repair would have been. The two misfits share a
+direction — both look like "too much reach" — which is why the earlier write-up treated
+them as one story about the nomination cap. They are not one story. Giving the model the
+right degree distribution leaves the network still too connected at middle distances and
+still short of the closed triads Glasgow has, so something else is missing as well;
+degree-heterogeneity effects such as `inPopSqrt` are the obvious next candidate, and we
+have not tested them.
+
+Fitting at c = 4 instead, where the effect has more leverage (29 % of actors above the
+threshold against 13 %), converges just as well (ratio 0.095) with `outTrunc` at
+1.033 ± 0.122, and lands in the same place: five of eight rejected, out-degree repaired in
+period 1 (p 0.244) and not in period 2 (0.001), triads and geodesics unmoved. The choice
+of threshold changes how much of the degree distribution is repaired and nothing else.
+
+| | canonical | `outTrunc(5)` | `outTrunc(4)` |
+|---|---|---|---|
+| out-degree p1 / p2 | 0.001 / 0.001 | **0.638** / 0.021 | **0.244** / 0.001 |
+| triad census p1 / p2 | 0.001 / 0.001 | 0.002 / 0.001 | 0.006 / 0.001 |
+| geodesic p1 / p2 | 0.001 / 0.001 | 0.009 / 0.001 | 0.008 / 0.001 |
+| rejected of 8 | 6 | 5 | 5 |
+
+A caution for anyone repeating this: `includeEffects(eff, outTrunc, parameter = 6)`
+silently ignores the parameter and leaves RSiena's default; it only warns. Our first fit
+was therefore at c = 5 while we believed it was at 6 — and it converged cleanly, which
+would have been a comfortable and wrong result. `setEffect` is the right call, and
+`benchmarks/glasgow/fit_outtrunc.R` now asserts the cap before fitting.
+
 ## What this closes and what it does not
 
 ## What this closes and what it does not
