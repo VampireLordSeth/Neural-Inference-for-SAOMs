@@ -34,6 +34,12 @@ def main():
         help="start-network regime"
     )
     ap.add_argument(
+        "--evolved-frac", type=float, default=0.0,
+        help="fraction of panels whose start network is simulated forward one period "
+             "first, at the panel's own effects and an independent rate draw. This is "
+             "what period 2 of a longer panel conditions on (docs/PRIORS_M7.md)."
+    )
+    ap.add_argument(
         "--box", default="default", choices=["default", "sparse"], help="effect prior box"
     )
     args = ap.parse_args()
@@ -64,6 +70,7 @@ def main():
         waves=args.waves,
         n_range=(args.n_min, args.n_max),
         start=args.start,
+        evolved_frac=args.evolved_frac,
     )
     dt = time.perf_counter() - t0
     print(f"simulated {args.N} panels in {dt:.1f}s ({args.N / dt:,.0f} panels/s)")

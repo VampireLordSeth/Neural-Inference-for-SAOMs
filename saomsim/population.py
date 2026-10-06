@@ -325,6 +325,7 @@ def generate_m2(
     progress: bool = False,
     waves: int = 2,
     start: str = "m2",
+    evolved_frac: float = 0.0,
 ) -> M2TrainingSet:
     """Draw ``N`` (n, covariates, X0, theta) from the population, simulate ``waves - 1``
     periods with one rate per period and shared effects, summarise.
@@ -332,7 +333,18 @@ def generate_m2(
     One ``n`` per chunk so each chunk is a dense (B, n, n) batch. Every draw is
     kept. Networks are stored padded to ``N_MAX`` and bit-packed. ``theta`` is
     ``(rate_1..rate_{W-1}, effects)``.
+
+    ``evolved_frac`` gives that fraction of panels a **pre-period**: the start network is
+    simulated forward one period, at the panel's own effects and an independent rate draw,
+    before the panel begins. This is what period 2 of a longer panel actually conditions
+    on, and a population without it leaves the estimator reading rate and density low
+    there (``docs/PRIORS_M7.md``). Note the contrast with the burn-in that structures
+    start networks, which uses an *independent* theta precisely so the population does not
+    assert that wave 1 is stationary under the theta being inferred; here the coupling is
+    the point, because period 2's start really was produced at these effects.
     """
+    if not 0.0 <= evolved_frac <= 1.0:
+        raise ValueError(f"evolved_frac must be in [0, 1], got {evolved_frac}")
     n_lo, n_hi = n_range
     if keep_networks and n_hi > N_MAX:
         raise ValueError(f"n_range exceeds N_MAX={N_MAX}; pass keep_networks=False for larger n")
@@ -355,6 +367,17 @@ def generate_m2(
         X0, _ = sample_start_networks(B, n, rng, prior, model, backend=backend, start=start)
         theta = prior.sample(B, rng)
         effects, rates = theta[:, R:], theta[:, :R]
+        if evolved_frac > 0:
+            pre = rng.random(B) < evolved_frac
+            if pre.any():
+                # one period at this panel's effects and an independent rate, since the
+                # per-period rates are independent in the model
+                pre_rate = prior.sample(int(pre.sum()), rng)[:, 0]
+                X0 = X0.copy()
+                X0[pre] = simulate_period(
+                    np.ascontiguousarray(X0[pre]), effects[pre], pre_rate,
+                    m2_model({k: v[pre] for k, v in covs.items()}), rng, backend=backend,
+                )
         later = []
         prev = X0
         for w in range(R):

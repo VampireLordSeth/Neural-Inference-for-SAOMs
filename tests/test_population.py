@@ -267,3 +267,63 @@ def test_survey_start_regime_every_start_sparse():
     er = ~burn & ~capped
     md = outdeg[er].mean(axis=1)
     assert md.min() < 1.5 and md.max() < 8 and 2 < md.mean() < 4.5
+
+
+# -------------------------------------------------- evolved starts (M7)
+
+
+def test_evolved_frac_is_validated():
+    from benchmarks.m2 import m2_prior
+
+    rng = np.random.default_rng(0)
+    for bad in (-0.1, 1.5):
+        with pytest.raises(ValueError, match="evolved_frac"):
+            generate_m2(m2_prior(2), 4, rng, n_range=(10, 10), chunk=4, evolved_frac=bad)
+
+
+def test_evolved_frac_zero_reproduces_the_plain_population():
+    """The default must be bit-identical to not having the feature at all."""
+    from benchmarks.m2 import m2_prior
+
+    kw = dict(n_range=(12, 12), chunk=8, keep_networks=False)
+    a = generate_m2(m2_prior(2), 16, np.random.default_rng(3), **kw)
+    b = generate_m2(m2_prior(2), 16, np.random.default_rng(3), evolved_frac=0.0, **kw)
+    np.testing.assert_array_equal(a.summary, b.summary)
+    np.testing.assert_array_equal(a.theta, b.theta)
+
+
+def test_evolved_starts_move_the_start_network_but_not_theta():
+    """A pre-period changes x0 and nothing about the parameters it is drawn with."""
+    from benchmarks.m2 import m2_prior
+
+    kw = dict(n_range=(14, 14), chunk=32, keep_networks=False)
+    plain = generate_m2(m2_prior(2), 32, np.random.default_rng(5), **kw)
+    evolved = generate_m2(m2_prior(2), 32, np.random.default_rng(5), evolved_frac=1.0, **kw)
+    # same prior draws: theta is sampled before the pre-period runs
+    np.testing.assert_array_equal(plain.theta, evolved.theta)
+    # but the x0 block of the summary vector differs, since x0 itself has moved
+    names = list(plain.summary_names)
+    x0 = [i for i, nm in enumerate(names) if nm.startswith("x0_")]
+    assert not np.array_equal(plain.summary[:, x0], evolved.summary[:, x0])
+
+
+def test_evolved_starts_carry_the_structure_their_effects_imply():
+    """The point of the pre-period: a start that already shows the panel's own structure.
+    With strong reciprocity the evolved starts should be more reciprocated than the
+    freshly drawn ones they came from."""
+    from benchmarks.m2 import m2_prior
+    from saomsim.prior import BoxPrior
+
+    names = ["rate"] + m2_model(sample_covariates(1, 10, np.random.default_rng(0))).labels
+    # a near-point prior: high reciprocity, everything else negligible
+    lo = np.array([6.0, -2.25, 2.45, -0.01, -0.01, -0.01, -0.01, -0.01])
+    hi = np.array([6.5, -2.15, 2.55, 0.01, 0.01, 0.01, 0.01, 0.01])
+    strong = BoxPrior(tuple(names), lo, hi)
+    kw = dict(n_range=(25, 25), chunk=64, keep_networks=False, start="survey")
+    plain = generate_m2(strong, 64, np.random.default_rng(7), **kw)
+    evolved = generate_m2(strong, 64, np.random.default_rng(7), evolved_frac=1.0, **kw)
+    nm = list(plain.summary_names)
+    recip, dens = nm.index("x0_recip"), nm.index("x0_density")
+    r_plain = plain.summary[:, recip] / np.maximum(plain.summary[:, dens], 1)
+    r_evo = evolved.summary[:, recip] / np.maximum(evolved.summary[:, dens], 1)
+    assert r_evo.mean() > r_plain.mean(), (r_plain.mean(), r_evo.mean())
