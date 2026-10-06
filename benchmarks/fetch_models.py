@@ -40,9 +40,13 @@ MODELS = {
         "5a2a34267d5bdd0d",
         "network, 2 waves, n 30-100 -- best calibrated; the default",
     ),
+    "npe_coev_m6.pt": (
+        "1519541d240f98cc",
+        "network x behaviour, 2 waves, n 20-150 -- widest; use outside [30, 100]",
+    ),
     "npe_coev_m5c.pt": (
         "b7d3887186f4a1d0",
-        "network x behaviour, 2 waves, n 30-100",
+        "network x behaviour, 2 waves, n 30-100 -- better calibrated; the default",
     ),
     "npe_m4b.pt": ("e3db9efedbd7e037", "network, 3 waves, n 20-200 (10^6 budget)"),
     "npe_coev_m4_10m.pt": ("802c88b460579153", "network x behaviour, 3 waves, n 20-200"),
@@ -54,7 +58,7 @@ MODELS = {
     "npe_coev_m4.pt": ("b7ce904f04da1a81", "superseded; kept for the record"),
     "npe_coev_m4b.pt": ("2b69d8ef129f1d8c", "superseded; kept for the record"),
 }
-DEFAULT = ["npe_m6.pt", "npe_m5c.pt", "npe_coev_m5c.pt"]
+DEFAULT = ["npe_m6.pt", "npe_m5c.pt", "npe_coev_m6.pt", "npe_coev_m5c.pt"]
 
 
 def fetch(name: str, dest: Path, check: bool = True) -> Path:

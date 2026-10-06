@@ -53,6 +53,22 @@ The one to use when your panel is in its range. It reads **any number of waves**
 | **against RSiena** | 19 Baerveldt school classes, **152 of 152** parameters inside the 90 % interval, largest \|z\| 1.47; posterior sds sit on RSiena's own standard errors |
 | **known weakness** | on a panel of more than two waves the *later* periods start from an evolved network, which this population does not contain, and rate and density are read slightly low there (rank 0.528). See `docs/MULTIWAVE.md` §"Where the degradation comes from" |
 
+## `npe_coev_m6.pt` — network × behaviour, two waves, n 20–150 *(the widest)*
+
+The co-evolution counterpart of `npe_m6.pt`: the `npe_coev_m5c.pt` population widened in
+the size range alone. Use it when your panel falls outside [30, 100]; inside it, prefer
+`npe_coev_m5c.pt`, whose calibration is better.
+
+| | |
+|---|---|
+| **returns** | 12 parameters, as `npe_coev_m5c.pt` |
+| **actors** | n ∈ **[20, 150]**; behaviour on 3–5 ordered categories |
+| **priors, starts** | identical to `npe_coev_m5c.pt` below |
+| **training** | 10⁷ panels, **7 h 14 m** to generate (369–404 panels/s), **19 h 52 m** to train |
+| **calibration** | 4,000 fresh draws: **3 of 12 rejected** (cycle3 0.000, avAlt 0.002, transTrip 0.004), mean ranks 0.481–0.516; 90 % coverage 0.884–0.905 and 95 % 0.939–0.952 against binomial se 0.005 and 0.003. No drift across n bands — every band's mean rank is within 0.475–0.527 from n = 20 to n = 150 |
+| **read this** | `npe_coev_m5c.pt` on [30, 100] rejects 1 of 12 at the same budget. The same trade as the network model: a wider size range is a harder learning problem and 10⁷ buys less calibration spread over it |
+| **against RSiena** | Knecht klas12b, **four waves**, n = 25, 16 parameters with delinquency co-evolving: largest \|z\| **1.23** (1.09 when `npe_coev_m5c` had to extrapolate). Note the product sampler struggles here — 867 effective draws — so the `--cross-check` Metropolis run is doing the work; it agrees to 0.091 sd with max split-Rhat 1.037 |
+
 ## `npe_coev_m5c.pt` — network × behaviour, two waves
 
 | | |
@@ -110,6 +126,7 @@ explain what each one established. Do not use them for new data.
 | 30–100 actors, network only, any number of waves | `npe_m5c.pt` |
 | 20–150 actors, network only, any number of waves | `npe_m6.pt` (outside [30, 100]; inside it, prefer `npe_m5c.pt`) |
 | 30–100 actors, network and a 1–5 behaviour, any number of waves | `npe_coev_m5c.pt` |
+| 20–150 actors, network and a 1–5 behaviour, any number of waves | `npe_coev_m6.pt` (outside [30, 100]; inside it, prefer `npe_coev_m5c.pt`) |
 | 20–200 actors, network only, exactly three waves | `npe_m4b.pt` via `benchmarks/fit.py` |
 | 20–200 actors, co-evolution, exactly three waves | `npe_coev_m4_10m.pt` via `benchmarks/fit.py` |
 | fewer than 20 or more than 200 actors | none of these; train one (`benchmarks/generate_m2.py`, `benchmarks/npe_m2.py`) |

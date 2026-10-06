@@ -330,6 +330,7 @@ opposite ends of the range:
 | Glasgow, 3 waves | 129 | `npe_m5c` | **no**, above | 1.14 |
 | Glasgow, 3 waves | 129 | **`npe_m6`** | **yes** | **1.62** |
 | Knecht, 4 waves, co-evolution | 25 | `npe_coev_m5c` | **no**, below | 1.09 |
+| Knecht, 4 waves, co-evolution | 25 | **`npe_coev_m6`** | **yes** | **1.23** |
 
 `npe_m6` (n ∈ [20, 150], trained 2026-09-27) makes the two network demonstrations
 legitimate rather than lucky, and they move in opposite directions. Knecht improves
@@ -343,8 +344,19 @@ panel's largest \|z\| is a noisy statistic and neither number should carry much 
 its own. What the M6 run buys is not better agreement — it is the right to quote these
 comparisons at all, because the estimator is now calibrated where the data sit.
 
-The co-evolution row remains an extrapolation: M6 covers the network model only, and a
-co-evolution population at the same width would be another day of compute.
+The co-evolution row is in range too, as of 2026-09-28: `npe_coev_m6` is the same
+widening applied to the co-evolution population, 7 h 14 m to generate and 19 h 52 m to
+train. Its largest |z| is 1.23 against 1.09 extrapolating — the same small worsening the
+network model showed on Glasgow, and for the same reason: the wider population is less
+well calibrated (3 of 12 rank distributions rejected against 1 of 12), which is the price
+of covering the sizes. **No demonstration in this document is an extrapolation any
+more.**
+
+One caveat specific to this fit. The product sampler returns only 867 effective draws
+here, far below what it manages on the network model, because the co-evolution target has
+the influence–curvature ridge. The `--cross-check` Metropolis run is what makes the
+numbers trustworthy: it agrees with importance sampling to 0.091 posterior sd with a
+maximum split-Rhat of 1.037. On the co-evolution model that cross-check is not optional.
 
 ### Co-evolution efficiency
 
