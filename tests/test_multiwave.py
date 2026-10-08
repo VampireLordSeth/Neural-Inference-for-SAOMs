@@ -143,7 +143,10 @@ def test_coev_period_views_checks_wave_counts_match():
 # --------------------------------------------------------------- product sampler
 # The sampler lives in the installable package (saomsim.product); the CSV entry points and
 # the naming live in saomsim.cli. benchmarks/multiwave.py is only the research CLI on top.
-torch = pytest.importorskip("torch")
+# No importorskip("torch") here. There was one, it imported torch without using it, and
+# because it ran at module scope it skipped this entire file -- the period-view tests above
+# included -- on any machine without torch installed. Nothing here needs torch: the sampler
+# imports it lazily, and these tests exercise the numpy half.
 bmw = pytest.importorskip("saomsim.product")
 cli = pytest.importorskip("saomsim.cli")
 bmr = pytest.importorskip("benchmarks.multiwave")
@@ -202,6 +205,29 @@ def test_split_rhat_is_one_for_iid_draws_and_large_for_offset_chains():
     assert np.nanmax(bmw.split_rhat(good)) < 1.05
     bad = good + np.arange(8)[None, :, None] * 3.0
     assert np.nanmin(bmw.split_rhat(bad)) > 1.5
+
+
+def test_chain_ess_recovers_the_analytic_ar1_value():
+    """An AR(1) chain of N draws is worth N (1-rho)/(1+rho) independent ones."""
+    rng = np.random.default_rng(11)
+    n, m = 4000, 8
+    iid = rng.standard_normal((n, m, 3))
+    assert np.all(bmw.chain_ess(iid) > 0.9 * n * m)
+
+    for rho in (0.5, 0.9):
+        x = np.empty((n, m))
+        x[0] = rng.standard_normal(m)
+        for t in range(1, n):
+            x[t] = rho * x[t - 1] + np.sqrt(1 - rho**2) * rng.standard_normal(m)
+        got = bmw.chain_ess(x[:, :, None])[0]
+        want = n * m * (1 - rho) / (1 + rho)
+        assert 0.85 < got / want < 1.15, (rho, got, want)
+
+
+def test_chain_ess_is_tiny_for_a_chain_that_never_moved():
+    rng = np.random.default_rng(12)
+    stuck = np.repeat(rng.standard_normal((1, 8, 2)), 2000, axis=0)
+    assert np.all(bmw.chain_ess(stuck) < 100)
 
 
 def test_t_logpdf_matches_scipy():

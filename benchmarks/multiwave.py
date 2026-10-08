@@ -192,12 +192,13 @@ def main():
     if a.cross_check:
         mu, cov = info["proposal_mean"], info["proposal_cov"]
         A = selectors(P, n_rate, len(eff_names))
-        alt, acc, rhat = metropolis(
+        alt, acc, rhat, alt_ess = metropolis(
             post, views, A, mu, cov, a.draws, np.random.default_rng(a.seed + 1)
         )
         gap = (phi.mean(0) - alt.mean(0)) / np.sqrt(phi.var(0, ddof=1) + alt.var(0, ddof=1))
         print(
             f"  cross-check by Metropolis: accept {acc:.2f}, max Rhat {np.nanmax(rhat):.3f}, "
+            f"ESS {np.nanmin(alt_ess):.0f} of {len(alt)}, "
             f"largest standardised gap in the means {np.abs(gap).max():.3f}"
         )
 

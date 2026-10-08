@@ -111,7 +111,35 @@ construction. But the output should carry the effective size next to the nominal
 `saom-fit` should probably refuse to write a file whose ESS is below some floor without
 saying so loudly.
 
-## 5. Smaller points, recorded rather than acted on
+**Fixed, and it was worse than written above.** In the Metropolis branch the ESS being
+reported was the *importance* ESS — the number that had just failed the `min_ess` test and
+caused the fallback. It is a statement about the proposal that was abandoned and says
+nothing about the chain that replaced it, so every "metropolis, ESS 867" line in this
+project's output was mislabelled. `chain_ess()` now computes the real thing (Geyer's
+initial-positive-sequence estimator, checked against the analytic AR(1) value
+N(1−ρ)/(1+ρ) to within 4 %), `combine()` reports it as `ess` and keeps the importance
+figure as `ess_importance`, and `saom-fit` prints *N draws carrying M effective*, adds an
+`mcse` column so the unreal decimals are visible, and warns on write when M is low.
+
+## 5. A single unused import was skipping a whole test module
+
+Found while fixing §4. `tests/test_multiwave.py` began its sampler section with
+
+    torch = pytest.importorskip("torch")
+
+`torch` is then never used anywhere in the file. Because `importorskip` raises at *module*
+scope, that line skipped **all 22 tests in the file** on any machine without torch — not
+just the sampler tests below it, but the ten period-view tests above it, which are the ones
+that check the implementation of the factorisation this project rests on. Nothing in the
+file needs torch: the sampler imports it lazily and these tests exercise the numpy half.
+The suite reported one tidy `SKIPPED [1]` line and looked healthy.
+
+Removed, and the 22 tests pass. The lesson is narrower than it looks: a skip is not a pass,
+and a suite that prints its skips as a count rather than a list hides how many. The other
+`importorskip` calls were checked and are correct — `test_embedding.py` genuinely needs
+torch, `test_gof.py` genuinely needs networkx for the triad-lookup cross-check.
+
+## 6. Smaller points, recorded rather than acted on
 
 **The population stage treats per-class posteriors as Gaussian**, summarising each by a
 mean and an sd. Eight of nineteen classes have influence posteriors against the prior

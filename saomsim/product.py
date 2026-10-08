@@ -209,7 +209,7 @@ def combine(
             ess = 1.0 / (w**2).sum()
     info = {
         "ess": ess,
-        "ess_frac": ess / proposal,
+        "ess_frac": ess / proposal,  # how well the proposal matched, in both branches
         "per_period": per,
         "proposal_mean": mu,
         "proposal_cov": cov,
@@ -217,10 +217,17 @@ def combine(
     if ess >= min_ess:
         idx = rng.choice(len(prop), size=draws, replace=True, p=w)
         info["method"] = "importance"
+        info["ess_per_draw"] = ess / draws
         return prop[idx], info
     if verbose:
         print(f"  ESS {ess:.0f} effective draws below {min_ess}; falling back to Metropolis")
-    phi, acc, rhat = metropolis(post, views, A, mu, cov, draws, rng)
+    phi, acc, rhat, chain_e = metropolis(post, views, A, mu, cov, draws, rng)
+    # ``ess_frac`` stays the importance diagnostic, since that is what every caller reads
+    # it as; ``ess`` becomes the chain's own, which is what the returned draws are worth.
+    info["ess_importance"] = ess
+    info["ess"] = float(np.nanmin(chain_e))
+    info["ess_per_parameter"] = chain_e
+    info["ess_per_draw"] = info["ess"] / len(phi)
     info["method"], info["accept"], info["rhat"] = "metropolis", acc, rhat
     return phi, info
 
@@ -239,13 +246,56 @@ def split_rhat(chain):
         return np.sqrt(np.where(W > 0, var / W, np.nan))
 
 
+def chain_ess(chain):
+    """Effective sample size per parameter for a (n_draws, n_chains, d) array.
+
+    Geyer's initial-positive-sequence estimator, as Stan computes it: autocovariances are
+    averaged over chains, turned into autocorrelations against the pooled variance, summed
+    in adjacent pairs, and the sum truncated at the first pair that goes negative.
+
+    This is what the Metropolis fallback's draws are worth. The importance ESS that
+    triggered the fallback is a statement about the proposal that failed, not about the
+    chain that replaced it, and reporting it as the ESS of the returned draws -- which is
+    what this code used to do -- overstates them.
+    """
+    n, m, d = chain.shape
+    out = np.full(d, np.nan)
+    if n < 8:
+        return out
+    means = chain.mean(axis=0)  # (m, d)
+    W = chain.var(axis=0, ddof=1).mean(axis=0)  # (d,)
+    B = means.var(axis=0, ddof=1) * n if m > 1 else np.zeros(d)
+    var_plus = ((n - 1) * W + B) / n
+    pad = 1
+    while pad < 2 * n:
+        pad *= 2
+    f = np.fft.rfft(chain - means, n=pad, axis=0)
+    acov = np.fft.irfft(f * np.conjugate(f), n=pad, axis=0)[:n].real / n
+    acov = acov.mean(axis=1)  # (n, d), averaged over chains
+    for j in range(d):
+        if not np.isfinite(var_plus[j]) or var_plus[j] <= 0:
+            continue
+        rho = 1.0 - (W[j] - acov[:, j]) / var_plus[j]
+        rho[0] = 1.0
+        tau, k = -1.0, 0
+        while k + 1 < n:
+            pair = rho[k] + rho[k + 1]
+            if k > 0 and pair < 0:
+                break
+            tau += 2.0 * pair
+            k += 2
+        out[j] = m * n / max(tau, 1.0)
+    return np.minimum(out, m * n)
+
+
 def metropolis(post, views, A, mu, cov, draws, rng, chains=8, thin=5, burn=400):
     """Random-walk Metropolis on the same product target, seeded from the proposal.
 
     The step size adapts during burn-in towards the 0.234 acceptance rate that is optimal
     for a random walk in this many dimensions; adaptation stops before the first kept draw,
-    so what is kept is a proper Markov chain. Returns split-Rhat alongside the draws,
-    because an unmixed fourteen-dimensional chain otherwise looks just like a good one.
+    so what is kept is a proper Markov chain. Returns split-Rhat and the per-parameter
+    effective sample size alongside the draws, because an unmixed fourteen-dimensional
+    chain otherwise looks just like a good one.
     """
     d = len(mu)
     base = np.linalg.cholesky(cov)
@@ -267,7 +317,9 @@ def metropolis(post, views, A, mu, cov, draws, rng, chains=8, thin=5, burn=400):
             if it % thin == 0:
                 keep.append(cur.copy())
     chain = np.asarray(keep)  # (n_kept, chains, d)
-    return chain.reshape(-1, d)[:draws], acc / max(n_acc, 1), split_rhat(chain)
+    phi = chain.reshape(-1, d)[:draws]
+    ess = chain_ess(chain) * len(phi) / max(chain.shape[0] * chain.shape[1], 1)
+    return phi, acc / max(n_acc, 1), split_rhat(chain), ess
 
 
 def period_spread(per, n_rate):

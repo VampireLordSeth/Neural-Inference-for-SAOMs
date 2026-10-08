@@ -159,7 +159,14 @@ def report(phi, info, phi_names, eff_names, n_rate, P):
             f"{len(phi_names)} names for {phi.shape[1]} sampled parameters -- the wave count "
             "used for naming does not match the panel"
         )
-    print(f"\n{'parameter':<14}{'mean':>9}{'sd':>8}{'2.5%':>9}{'97.5%':>9}   per-period means")
+    # mcse is the Monte Carlo error of the printed mean, sd / sqrt(effective draws). It is
+    # there so the nominal draw count cannot be mistaken for the independent one: a column
+    # of 10,000 correlated draws with ESS 900 carries a third fewer digits than it looks.
+    ess = max(float(info.get("ess", np.nan)), 1.0)
+    print(
+        f"\n{'parameter':<14}{'mean':>9}{'mcse':>8}{'sd':>8}{'2.5%':>9}{'97.5%':>9}"
+        "   per-period means"
+    )
     for j, nm in enumerate(phi_names):
         col = phi[:, j]
         q = np.percentile(col, [2.5, 97.5])
@@ -168,7 +175,11 @@ def report(phi, info, phi_names, eff_names, n_rate, P):
         else:
             k = j - P * n_rate + n_rate
             note = "  ".join(f"{per[w][:, k].mean():+.3f}" for w in range(P))
-        print(f"{nm:<14}{col.mean():9.3f}{col.std(ddof=1):8.3f}{q[0]:9.3f}{q[1]:9.3f}   {note}")
+        sd = col.std(ddof=1)
+        print(
+            f"{nm:<14}{col.mean():9.3f}{sd / np.sqrt(ess):8.3f}{sd:8.3f}"
+            f"{q[0]:9.3f}{q[1]:9.3f}   {note}"
+        )
 
     spread = period_spread(per, n_rate)
     print("\nperiod spread, max |mu_a - mu_b| / sqrt(s_a^2 + s_b^2) over period pairs:")
@@ -219,10 +230,16 @@ def main(argv=None):
         post, views, n_rate, draws=a.draws, proposal=a.proposal, min_ess=a.min_ess, seed=a.seed
     )
     print(
-        f"  {info['method']}, ESS {info['ess']:.0f} effective draws"
+        f"  {info['method']}, {len(phi)} draws carrying {info['ess']:.0f} effective"
         + (f", accept {info['accept']:.2f}" if "accept" in info else "")
         + (f", max Rhat {np.nanmax(info['rhat']):.3f}" if "rhat" in info else "")
     )
+    if info["ess"] < a.min_ess:
+        print(
+            f"  WARNING: {info['ess']:.0f} effective draws. Intervals from these samples "
+            f"carry a Monte Carlo error about {np.sqrt(len(phi) / info['ess']):.1f}x larger "
+            "than the draw count suggests; treat the third decimal as noise."
+        )
 
     phi_names = phi_names_for(len(a.waves), n_rate, eff_names)
     spread = report(phi, info, phi_names, eff_names, n_rate, P)
@@ -234,9 +251,14 @@ def main(argv=None):
             names=np.array(phi_names),
             per_period=info["per_period"],
             ess=info["ess"],
+            draws=len(phi),
+            method=info["method"],
             spread=spread,
         )
-        print(f"\nwrote {a.out}")
+        print(
+            f"\nwrote {a.out}: {len(phi)} draws, {info['ess']:.0f} effective. Use the "
+            "effective count, not the array length, for any Monte Carlo error."
+        )
     return 0
 
 
@@ -315,7 +337,7 @@ def main_gof(argv=None):
     )
     check_n(a.posterior, n)
     phi, info = combine(post, views, 1, draws=max(4000, a.B), proposal=a.proposal, seed=a.seed)
-    print(f"  posterior by {info['method']}, ESS {info['ess']:.0f} effective draws\n")
+    print(f"  posterior by {info['method']}, {a.draws} draws, {info['ess']:.0f} effective\n")
 
     v = np.loadtxt(a.v, delimiter=",", ndmin=1)
     g = np.loadtxt(a.g, delimiter=",", ndmin=1)
