@@ -46,9 +46,20 @@ After training, analysing a new network is a single forward pass: about a
 tenth of a second, no simulation loop, and you get uncertainty for free. The
 up-front cost is paid once and shared across every network you analyse
 afterwards — hence *amortized*. This approach is well established in physics
-and biology (it is called simulation-based inference) and has recently been
-applied to cross-sectional network models; to our knowledge this is its first
-application to longitudinal actor-oriented models.
+and biology (it is called simulation-based inference), has been applied to
+cross-sectional network models, and has been applied to SAOMs for a single
+period with a fixed start network (Maltsev 2026). What is added here is an
+estimator that generalises across start networks, sizes, covariate layouts
+and panel lengths, rather than one trained for a particular dataset.
+
+![RSiena's estimator and an amortized one](docs/figures/methods_comparison.png)
+
+Both methods fit the same model by simulating from it, and the difference is
+where the simulation loop sits. The right-hand panel is the part usually left
+out: training the estimator yourself costs about seventeen hours, so on
+compute alone it does not repay until roughly 270 panels. The case for it is
+that the cost is paid *once, for everyone* — and that what comes back is a
+full posterior rather than an asymptotic standard error.
 
 ## What has been built and shown
 
