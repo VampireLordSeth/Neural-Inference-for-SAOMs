@@ -99,6 +99,13 @@ a large spread says the data disagree, which is a finding (a time-varying effect
 a numerical complaint. A joint estimator cannot show this, because it never forms the
 per-period posteriors.
 
+**Correct the threshold for multiplicity.** The flag fires at a standardised gap above 2,
+uncorrected. A four-wave panel gives 3 period pairs × 7 effects = 21 comparisons, where
+chance alone produces about one flag; the two flagged on the Knecht classroom
+(`transTrip` 2.06, `egoX` 2.35) are what chance gives, P(≥2) = 0.25, and were described
+here as a finding about the data when they are not one (`docs/AUDIT.md` §2). Read the
+flag with the comparison count beside it.
+
 ## Does it work
 
 ### s50, three waves, network model
@@ -283,8 +290,9 @@ a calibrated fit.
 | sameX(sex) | 0.435 (0.154) | 0.634 (0.115) | −1.04 |
 
 Largest |z| 1.04, on 14,133 effective draws. Period spread flags `transTrip` (2.06) and
-`egoX` (2.35): the three periods disagree about those two effects, which is a statement
-about this classroom and not about the method.
+`egoX` (2.35) — but those are not significant and should not be read as a finding. A
+four-wave panel gives 21 comparisons at an uncorrected 2σ threshold, where chance alone
+yields about one flag; P(≥2) = 0.25 (`docs/AUDIT.md` §2).
 
 Knecht was previously read as two overlapping three-wave windows (w1–w3 and w2–w4), which
 gives two answers and discards the constraint that β is shared across all three periods.

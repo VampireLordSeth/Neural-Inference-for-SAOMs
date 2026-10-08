@@ -95,7 +95,7 @@ the size range alone. Use it when your panel falls outside [30, 100]; inside it,
 | **priors** | as above, plus behaviour rate U(0.3, 6), simZ U(−1, 4), linear U(−1.5, 1.5), quad U(−1.5, 0.5), avAlt U(−1, 4) |
 | **training** | 10⁷ panels, 3 h 22 m to generate, 20 h 40 m to train |
 | **calibration** | 90 % coverage 0.890–0.906, 95 % 0.938–0.952; KS rejects 1 of 12 (quad, p 0.004, mean rank 0.514) |
-| **against RSiena** | 17 Baerveldt classes where RSiena converges, **204 of 204** within 1.645 combined sd, largest 1.52. Sharper than the method of moments on the parameters the studies are about: sd ratio **0.64 on influence**, **0.65 on curvature**, 0.94–1.02 on the structural block (ratio of mean sds; `benchmarks/paper_tables.py --ratios`) |
+| **against RSiena** | 17 Baerveldt classes where RSiena converges, **204 of 204** within 1.645 combined sd, largest 1.52. Matches RSiena's precision on the structural block (sd ratio 0.94–1.02). Our intervals are narrower on influence (0.64) and curvature (0.65), but **read `docs/AUDIT.md` §1 before quoting that**: those posteriors are 81 % and 53 % of their *prior's* width, so the bounded prior sets most of the interval and a data-free posterior would already beat RSiena's 1.83 standard error on influence |
 | **known weakness** | the product sampler is inefficient here (~1,500–3,500 effective draws) because of the influence–curvature ridge. Use `--cross-check` in `benchmarks/multiwave.py`; importance sampling and Metropolis agree to 0.08–0.14 sd, so it is efficiency and not bias |
 
 ## `npe_m4b.pt` — network model, three waves, larger networks

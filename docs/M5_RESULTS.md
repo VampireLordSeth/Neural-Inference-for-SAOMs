@@ -392,7 +392,13 @@ implicit.*
 
 On the structural parameters the two methods are within a few per cent. On
 the *behaviour* parameters — the ones the study is about — the amortized
-posterior is a third narrower, because the method of moments has to estimate
+posterior is a third narrower. **Corrected 2026-10-07 — see `docs/AUDIT.md` §1:** that
+is largely the bounded prior rather than the data. The influence posterior is 81 % of its
+prior's width against 18–40 % for the structural block, and the prior's sd (1.44) is
+already below RSiena's standard error (1.83). The original reasoning below is kept for
+the record but does not survive the control.
+
+The original reading was that the method of moments has to estimate
 them from two waves of a five-point scale by stochastic approximation while
 the flow has seen ten million panels of the same design.
 
