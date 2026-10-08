@@ -98,6 +98,75 @@ def per_period_sbc(post, views_all, theta, P, n_rate, model, a, kstest):
     print(f"wrote {a.out.replace('.npz', '_per_period.npz')}")
 
 
+def native_sbc(post, Xn, theta, a, pnames):
+    """Rank the truth within a native W-wave estimator's posterior, on the same panels.
+
+    The product is compared against this, so the two must see identical data and identical
+    truths -- hence one generation pass feeding both, rather than two runs with the same
+    seed, which would be the same thing only if nothing in between consumed the rng.
+    """
+    import torch
+
+    ranks, in90, in95, sd = [], [], [], []
+    for s in range(0, a.N, 200):
+        chunk = Xn[s : s + 200]
+        for i in range(len(chunk)):
+            smp = (
+                post.sample(
+                    (a.draws,),
+                    x=torch.as_tensor(chunk[i : i + 1], dtype=torch.float32),
+                    show_progress_bars=False,
+                )
+                .cpu()
+                .numpy()
+            )
+            true = theta[s + i]
+            ranks.append((smp < true).mean(0))
+            lo90, hi90 = np.percentile(smp, [5, 95], axis=0)
+            lo95, hi95 = np.percentile(smp, [2.5, 97.5], axis=0)
+            in90.append((true >= lo90) & (true <= hi90))
+            in95.append((true >= lo95) & (true <= hi95))
+            sd.append(smp.std(axis=0, ddof=1))
+        print(f"  native {min(s + 200, a.N)}/{a.N}", flush=True)
+    return tuple(np.asarray(x) for x in (ranks, in90, in95, sd))
+
+
+def compare(prod, nat, pnames, N, kstest):
+    """Print the product and the native estimator side by side, paired over panels."""
+    (r_p, i90_p, i95_p, sd_p), (r_n, i90_n, i95_n, sd_n) = prod, nat
+    se = np.sqrt(0.9 * 0.1 / N)
+    print(
+        "\nproduct of two-wave posteriors vs a native W-wave estimator, same panels\n"
+        f"(binomial se on 90% coverage at N={N}: {se:.3f}; sd ratio < 1 means the product "
+        "is sharper)\n"
+    )
+    print(
+        f"{'parameter':<12}{'KS prod':>9}{'KS nat':>8}{'rank prod':>11}{'rank nat':>10}"
+        f"{'cov90 prod':>12}{'cov90 nat':>11}{'sd ratio':>10}"
+    )
+    for j, nm in enumerate(pnames):
+        pp = kstest(r_p[:, j], "uniform").pvalue
+        pn = kstest(r_n[:, j], "uniform").pvalue
+        print(
+            f"{nm:<12}{pp:9.3f}{pn:8.3f}{r_p[:, j].mean():11.3f}{r_n[:, j].mean():10.3f}"
+            f"{i90_p[:, j].mean():12.3f}{i90_n[:, j].mean():11.3f}"
+            f"{sd_p[:, j].mean() / sd_n[:, j].mean():10.3f}"
+        )
+    # Paired, because both estimators saw the same panels: the per-panel difference in
+    # coverage has a much smaller standard error than the two marginal rates do.
+    d90 = i90_p.mean(1) - i90_n.mean(1)
+    print(
+        f"\nmean 90% coverage: product {i90_p.mean():.4f}, native {i90_n.mean():.4f}, "
+        f"paired difference {d90.mean():+.4f} "
+        f"(se {d90.std(ddof=1) / np.sqrt(len(d90)):.4f})"
+    )
+    print(
+        f"mean 95% coverage: product {i95_p.mean():.4f}, native {i95_n.mean():.4f}\n"
+        f"mean posterior sd ratio over parameters: "
+        f"{(sd_p.mean(0) / sd_n.mean(0)).mean():.4f}"
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--posterior", default="data/npe_m5c.pt")
@@ -118,6 +187,12 @@ def main():
         help="skip the product and calibrate each period's two-wave posterior on its own, "
              "which isolates the one distribution shift the product relies on: period w > 1 "
              "conditions on an evolved network, never a population start"
+    )
+    ap.add_argument(
+        "--native",
+        help="a native W-wave estimator (.pt) to compare the product against on the same "
+             "panels. Only meaningful if it was trained on this same population at the "
+             "same budget, differing in wave count alone (docs/PRODUCT_VS_NATIVE.md)"
     )
     a = ap.parse_args()
 
@@ -160,7 +235,7 @@ def main():
     if a.per_period:
         return per_period_sbc(post, views_all, theta, P, n_rate, model, a, kstest)
 
-    ranks, ess, inside90, inside95 = [], [], [], []
+    ranks, ess, inside90, inside95, sds = [], [], [], [], []
     t0 = time.perf_counter()
     for i in range(a.N):
         phi, info = combine(
@@ -178,6 +253,7 @@ def main():
         lo95, hi95 = np.percentile(phi, [2.5, 97.5], axis=0)
         inside90.append((theta[i] >= lo90) & (theta[i] <= hi90))
         inside95.append((theta[i] >= lo95) & (theta[i] <= hi95))
+        sds.append(phi.std(axis=0, ddof=1))
         if (i + 1) % 50 == 0:
             el = time.perf_counter() - t0
             print(
@@ -202,8 +278,24 @@ def main():
         )
     print(f"\nbinomial se on 90% coverage at N={a.N}: {se:.3f}")
 
+    sds = np.asarray(sds)
+    extra = {}
+    if a.native:
+        from saomsim.population import summary_subset, transform_m2
+
+        keep = summary_subset(names, "full")
+        Xn = transform_m2(ts.summary, names, model)[:, keep]
+        post_n = load_posterior(a.native)
+        print(f"\nnative estimator {Path(a.native).name} on the same {a.N} panels", flush=True)
+        nat = native_sbc(post_n, Xn, theta, a, pnames)
+        compare((ranks, inside90, inside95, sds), nat, pnames, a.N, kstest)
+        extra = {
+            "native_ranks": nat[0], "native_inside90": nat[1],
+            "native_inside95": nat[2], "native_sd": nat[3],
+        }
+
     np.savez(a.out, ranks=ranks, names=np.array(pnames), ess=np.array(ess),
-             inside90=inside90, inside95=inside95)
+             inside90=inside90, inside95=inside95, sd=sds, **extra)
     print(f"wrote {a.out}")
 
 

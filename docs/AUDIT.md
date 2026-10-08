@@ -92,10 +92,24 @@ note the budget difference and conclude "splitting costs nothing measurable here
 tenfold training-budget gap is precisely the sort of thing that could mask a real cost in
 either direction.
 
-A fair test exists and has not been run: `npe_coev_m4_10m` is a three-wave co-evolution
-estimator at 10⁷, so the co-evolution product could be compared against it at matched
-budget. The populations differ in n range and box, so it is not perfect, but it is far
-better than the comparison now in the paper.
+**Correction, same day.** This section went on to propose comparing the co-evolution
+product against `npe_coev_m4_10m` at matched budget, and called it "far better" than what
+the paper has. On checking the two model cards rather than remembering them, that is wrong.
+The populations differ in n range ([30, 100] vs [20, 200]), rate prior (U(1, 12) vs
+U(1, 20)), effect box (**sparse** vs **default**) and start regime (**survey** vs
+**homophilous**) — four confounds, two of which this audit did not notice when it proposed
+the test. Trading one confound of known direction for four of unknown direction is not an
+improvement.
+
+No pair of existing artefacts gives a clean test: every three-wave estimator here was
+trained on an m4-family population and every 10⁷ two-wave estimator on an m5c-family one.
+The clean test needs a run, which is pre-registered in `docs/PRODUCT_VS_NATIVE.md` and
+generating now — a three-wave network estimator on the M6 population, differing from
+`npe_m6` in wave count and nothing else, compared against `npe_m6`'s product on one shared
+set of panels (`sbc_multiwave.py --native`).
+
+Note what the §1 finding and this one have in common: both are cases where a comparison was
+made against the wrong baseline, and in both the error flattered the method.
 
 ## 4. We return 10,000 draws regardless of effective sample size
 
