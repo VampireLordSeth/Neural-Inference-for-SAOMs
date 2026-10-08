@@ -205,7 +205,11 @@ def panel_crossover(ax):
                         connectionstyle="arc3,rad=-0.25", mutation_scale=11),
     )
 
-    ax.set_xlabel("panels fitted", fontsize=9.5)
+    # "Panels", not "waves": the x axis counts datasets. A four-wave study is one panel,
+    # not four, and reading it the other way makes the break-even look seven times nearer
+    # than it is.
+    ax.set_xlabel("panels fitted   (one panel = one group, all of its waves)",
+                  fontsize=9.5)
     ax.set_ylabel("cumulative compute (hours)", fontsize=9.5)
     ax.set_title("Amortization is a claim about the second fit,\nnot the first",
                  fontsize=10.5, fontweight="bold")
@@ -228,14 +232,21 @@ def main(argv=None):
 
     fig = plt.figure(figsize=(14.2, 7.0))
     gs = fig.add_gridspec(1, 2, width_ratios=[1.62, 1.0], wspace=0.19,
-                          left=0.012, right=0.985, top=0.935, bottom=0.105)
+                          left=0.012, right=0.985, top=0.935, bottom=0.135)
     panel_schematic(fig.add_subplot(gs[0, 0]))
     panel_crossover(fig.add_subplot(gs[0, 1]))
 
     fig.text(0.012, 0.978, "Two ways to fit the same model by simulating from it",
              fontsize=13, fontweight="bold", va="top")
     fig.text(
-        0.012, 0.022,
+        0.012, 0.050,
+        "A $\\bf{wave}$ is one observation of the network; a $\\bf{period}$ is the "
+        "interval between two consecutive waves, and a $W$-wave panel has $W-1$ of them; "
+        "a $\\bf{panel}$ is one group observed at all of its waves — one dataset.",
+        fontsize=7.6, color="0.4", va="bottom",
+    )
+    fig.text(
+        0.012, 0.018,
         "Fit times are the measured ones for the three-wave Glasgow panel ($n = 129$); "
         "the 17 h is 5 h 34 m to generate $10^7$ panels plus 10 h 56 m to train, for the "
         "M6 network estimator. Both are single runs on one machine, not benchmarks.",
