@@ -36,6 +36,7 @@ import numpy as np
 # screening references band n in steps of 20 and so cannot distinguish n = 25 from n = 35;
 # the range is recorded here instead. See docs/PRIORS_M*.md.
 TRAINED_N = {
+    "npe_m7.pt": (20, 150),   # M6 plus evolved starts
     "npe_m6.pt": (20, 150),
     "npe_coev_m6.pt": (20, 150),
     "npe_m5.pt": (30, 100),

@@ -192,11 +192,14 @@ above the posterior median more often than it should, so on an evolved start the
 estimator reads the rate and the density slightly **low**. An evolved network is more
 settled than a freshly drawn one, and the estimator has no way to know that.
 
-So the factorisation is not what costs anything; the training population is. The right
-fix is a population whose start networks include some that have themselves been evolved
-for a period, so that what period 2 conditions on is in distribution. That is a
-population change, not a change to any of this, and it is deliberately **not** folded
-into the M6 run now training, which varies n alone so that its effect stays attributable.
+The obvious reading is that the factorisation costs nothing and the training population
+is at fault, so that a population whose starts have themselves been evolved would put
+period 2 back in distribution. **We built that population, and the reading was wrong.**
+It repairs the per-period tilt and makes the *joint* product markedly worse, because
+making the start informative about β is precisely what the factorisation forbids. The
+mechanism and the evidence are in "The evolved-start fix, and why it is not one" below;
+the short version is that the independent-θ₀ burn-in is not an accident to be corrected
+but a requirement of the construction.
 
 ### The joint product on the wider population, and why "0 of 9 rejected" is the wrong headline
 
@@ -247,10 +250,12 @@ both populations.
 
 That is the expected direction if the cause is what we claim it is. A wider range of n
 means a wider range of evolved networks for period 2 to start from, and none of them are
-in the training population either way; the mismatch simply has more room. It also means
-the fix — a start regime that includes networks evolved for a period — matters *more* as
-the population widens, not less, which is worth knowing before anyone trains a wider one
-still.
+in the training population either way; the mismatch simply has more room.
+
+Two later corrections to this paragraph, both from the M7 run. Most of M6's extra
+rejections were *not* the wider n: M7 covers the identical range, adds evolved starts,
+and rejects none of eight on its own two-wave SBC against M6's three. And the "fix" this
+paragraph anticipated makes the product worse rather than better — see below.
 
 `sameX` is a separate matter: it fails in period 1 as well (p = 0.009, mean rank 0.475
 in both runs), so its weakness
@@ -377,11 +382,13 @@ runs both and reports the largest gap; on the co-evolution model it is worth usi
   because the screening references band n in steps of 20 and cannot tell 25 from 35 by
   themselves. A wider two-wave population (n in [20, 150], everything else held at the
   m5c setting) is in training.
-* **Later periods start from evolved networks**, which the two-wave training population
-  does not contain, and calibration is measurably (if mildly) worse there — rate and
-  density read low, mean rank 0.528. The fix is a population that includes evolved
-  starts; until then a long panel's later periods carry a little more bias than its
-  first, and the per-period columns of `--per-period` are how to see it.
+* **Later periods start from evolved networks**, which the training population does not
+  contain, and calibration is measurably (if mildly) worse there — rate and density read
+  low, mean rank 0.528. This is **not** a defect to be fixed by putting evolved starts in
+  the population: doing so repairs the marginal and breaks the product (below). It is the
+  price of a factorisation that treats each wave as a fixed conditioning state, and a
+  long panel's later periods carry a little more bias than its first as a result. The
+  per-period columns of `--per-period` are how to see it.
 * **Co-evolution needs a better proposal** than the Gaussian product before the
   importance sampler is comfortable; for now `--cross-check` is the answer.
 * **The flat-box prior is assumed.** A non-flat prior needs the p(beta)^(W-2) correction.

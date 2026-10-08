@@ -18,6 +18,23 @@ than being shielded from it.
 
 ---
 
+## `npe_m7.pt` — two waves only, n 20–150 *(do not use for multiwave)*
+
+`npe_m6.pt` plus **evolved starts**: half the training panels have their start network
+simulated forward one period at the panel's own effects. As a *two-wave* estimator it is
+the best calibrated in this project — 0 of 8 rank distributions rejected on 4,000 fresh
+draws (smallest p 0.102), mean ranks 0.493–0.508, 90 % coverage 0.893–0.904 — and it fixes
+the per-period tilt that every other estimator here shows on an evolved start.
+
+**It is nevertheless the wrong estimator for reading a panel of more than two waves**, and
+that is a result rather than an oversight. Making the start informative about β is exactly
+what the per-period product forbids: the start then enters q_w twice, once through the
+previous period's likelihood and once through the flow reading β out of it, and the
+product over-concentrates. Its joint 90 % coverage is 0.854 against `npe_m6`'s 0.885, with
+all nine parameters below nominal. `docs/PRIORS_M7.md` has the mechanism and the evidence.
+
+Use it for a genuine two-wave panel. Use `npe_m6.pt` for anything longer.
+
 ## `npe_m6.pt` — network model, two waves, n 20–150 *(the widest)*
 
 Same population as `npe_m5c.pt` in every respect except the size range, so the two are

@@ -311,7 +311,6 @@ def test_evolved_starts_carry_the_structure_their_effects_imply():
     """The point of the pre-period: a start that already shows the panel's own structure.
     With strong reciprocity the evolved starts should be more reciprocated than the
     freshly drawn ones they came from."""
-    from benchmarks.m2 import m2_prior
     from saomsim.prior import BoxPrior
 
     names = ["rate"] + m2_model(sample_covariates(1, 10, np.random.default_rng(0))).labels
