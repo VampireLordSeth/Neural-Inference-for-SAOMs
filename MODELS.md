@@ -110,6 +110,24 @@ Superseded by `npe_m5c.pt` for two- and three-wave panels, but it covers a wider
 | **training** | **10⁶** panels — a tenth of the budget above, and it shows (`docs/M4_RESULTS.md`) |
 | **against RSiena** | Glasgow, 129 pupils: all nine parameters agree, 0.06 s against RSiena's 219 s |
 
+## `npe_m8.pt` — network model, three waves, the M6 population
+
+Built to answer one question rather than to be used: it is `npe_m6.pt`'s population with
+`--waves 3` and nothing else changed, so that comparing it against `npe_m6`'s product
+isolates the wave count (`docs/PRODUCT_VS_NATIVE.md`). It is also, incidentally, the
+best-calibrated three-wave network estimator here.
+
+| | |
+|---|---|
+| **returns** | 9 parameters: two rates, then density, recip, transTrip, cycle3, altX(v), egoX(v), sameX(g) |
+| **actors** | n ∈ **[20, 150]**; exactly **three** waves |
+| **priors** | identical to `npe_m6.pt` — rate U(1, 12) per period, sparse box, survey starts |
+| **training** | 10⁷ panels, 8 h 30 m to generate, 18 h 12 m to train, 202 epochs, best validation loss −0.743 |
+| **calibration** | KS rejects **2 of 9** (cycle3 p 0.017, altX 0.047); 90 % coverage 0.896–0.906; mean ranks near 0.5 in every n band from 20 to 150 |
+| **against RSiena** | s50, three waves, n = 50, a real start never seen in training: all nine parameters within **\|z\| ≤ 0.33**, in 0.07 s |
+| **what it showed** | reading the same three-wave panels as a product of two-wave posteriors costs **0.0156 of 90 % coverage** (paired se 0.0046) and yields posteriors 2 % narrower — mild over-confidence. Not the sampler: flat across ESS quartiles. See `docs/PRODUCT_VS_NATIVE.md` for why the evolved-start shift is the better explanation than the training budget |
+| **use it** | only for exactly three waves. For any other length use `npe_m6.pt` and the product |
+
 ## `npe_coev_m4_10m.pt` — network × behaviour, three waves, larger networks
 
 | | |

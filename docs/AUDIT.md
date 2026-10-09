@@ -103,10 +103,21 @@ improvement.
 
 No pair of existing artefacts gives a clean test: every three-wave estimator here was
 trained on an m4-family population and every 10⁷ two-wave estimator on an m5c-family one.
-The clean test needs a run, which is pre-registered in `docs/PRODUCT_VS_NATIVE.md` and
-generating now — a three-wave network estimator on the M6 population, differing from
-`npe_m6` in wave count and nothing else, compared against `npe_m6`'s product on one shared
-set of panels (`sbc_multiwave.py --native`).
+The clean test needs a run, which was pre-registered in `docs/PRODUCT_VS_NATIVE.md` and
+has since been done: `npe_m8`, a three-wave network estimator on the M6 population,
+differing from `npe_m6` in wave count and nothing else, at the same 10⁷ budget, compared
+against `npe_m6`'s product on one shared set of 400 panels (`sbc_multiwave.py --native`).
+
+**Result (2026-10-09): the product loses** — 0.8792 against 0.8947 mean 90 % coverage, a
+paired difference of −0.0156 (se 0.0046), while being 2 % *sharper*, so over-confident
+rather than noisy. Per-panel ESS, now saved, rules out the sampler: the gap is flat across
+ESS quartiles and widens slightly when the 2.8 % Metropolis fallbacks are dropped. By the
+criteria fixed before the run this is formally the *inconclusive* branch, since the native
+estimator saw twice the period transitions — but the evolved-start shift documented in
+`docs/MULTIWAVE.md` predicts exactly this, was recorded long before the comparison, and has
+nothing to do with budget. So the finding in this section stands and is now quantified: the
+claim was not merely unsupported, it was wrong in the direction that flattered the method,
+making this the third instance of that pattern.
 
 Note what the §1 finding and this one have in common: both are cases where a comparison was
 made against the wrong baseline, and in both the error flattered the method.

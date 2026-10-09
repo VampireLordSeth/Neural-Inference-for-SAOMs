@@ -134,6 +134,18 @@ difference rather than a property of the method: `npe_m5c` was trained on 10⁷ 
 `npe_m4b` on 10⁶ (`docs/M4_RESULTS.md`, step 2). The honest reading is that splitting a
 three-wave panel into two periods costs nothing measurable here, not that it gains.
 
+> **Superseded, 2026-10-09.** That last sentence was wrong, and the comparison behind it
+> was not fair: a 10⁷ estimator against a 10⁶ one, with the budget gap in the product's
+> favour. `docs/PRODUCT_VS_NATIVE.md` runs the matched test — `npe_m8`, a three-wave
+> estimator on the M6 population, differing from `npe_m6` in wave count alone, same 10⁷
+> budget, both read on one shared set of 400 panels. **The product loses by 0.0156 of 90 %
+> coverage (paired se 0.0046)** while being 2 % sharper, which is mild over-confidence. It
+> is not the sampler: the gap is flat across ESS quartiles and grows slightly when the
+> 2.8 % of panels that fell back to Metropolis are dropped. The best-supported explanation
+> is the evolved-start shift described below, which a natively three-wave estimator does
+> not suffer from, and which `docs/PRIORS_M7.md` shows cannot be trained away without
+> breaking the factorisation.
+
 ### Calibration
 
 `benchmarks/sbc_multiwave.py`, 400 three-wave panels drawn from the same population
