@@ -136,38 +136,90 @@ ESS quartiles. The deficit is flat in sampler quality, so the sampler is not pro
 The fallback panels on their own favour the product, but at n = 11 and se 0.027 that is
 noise.
 
-## Reading it against the criteria set before the run
+## Where the deficit sits: entirely in the shared parameters
 
-By the rule written down in advance, this is the **inconclusive** branch, and the discipline
-is worth keeping. The gap is −0.0156, below the −0.02 that was nominated as "loses badly",
-and every sd ratio is ≤ 1.013 against a threshold of 1.1. So the result cannot, by its own
-pre-registered terms, separate "the product construction is lossy" from "the native saw
-twice the period transitions at matched panels".
+Splitting the paired difference by what each parameter is made of:
 
-The pre-registered remedy stands: a second native trained at 5 × 10⁶ panels, matched on
-transitions rather than panels, brackets the answer. That run has not been done.
+| | paired coverage difference |
+|---|---|
+| **period-specific** (rate_1 from period 1, rate_2 from period 2) | **+0.0037** (se 0.0082) |
+| **shared effects** (β, combined across both periods) | **−0.0211** (se 0.0054) |
 
-## But there is a third explanation that fits better than either, and it is not about budget
+All of the loss is in the parameters the product has to *combine*, and none is in the ones
+that come from a single period. Within β, density and recip are untouched (−0.005, 0.000)
+while transTrip (−0.035), cycle3 (−0.038), altX (−0.030), egoX (−0.023) and sameX (−0.018)
+carry it.
 
-`docs/MULTIWAVE.md` already established, by a per-period diagnostic and before this run was
-conceived, that period *w* > 1 of a panel conditions on an **evolved** start network, which a
-two-wave training population does not contain, and that `npe_m6` reads rate and density low
-there — 4 of 8 rejected in period 2 against 7 of 8 uniform in period 1.
+## The mechanism, measured rather than argued
 
-A native three-wave estimator is immune to this **by construction**: its training panels
-have period 2 starting from an evolved network, so the thing that is out of distribution for
-the product is in distribution for M8. That mechanism predicts exactly what was observed,
-was documented before the comparison, and has nothing whatever to do with training budget.
+Calibrating each period's two-wave posterior separately, on the same 400 panels
+(`sbc_multiwave.py --per-period`), gives mean 90 % coverage of the shared effects:
 
-It is also the mechanism `docs/PRIORS_M7.md` tried to remove by evolving half the training
-starts, which fixed the per-period tilt and **broke the joint product** by making the start
-informative about β. So this deficit is not a defect awaiting a fix; the M7 result says it
-is the price of a valid factorisation.
+| | β coverage | se |
+|---|---|---|
+| period 1 alone — population start | **0.8993** | 0.0061 |
+| period 2 alone — evolved start | **0.8807** | 0.0070 |
+| **their product** | **0.8746** | 0.0069 |
+| native `npe_m8` | **0.8957** | 0.0066 |
 
-That makes the transition-count confound less interesting than it looked when the
-pre-registration was written, but it does not remove it, and the honest position is that
-the evolved-start account is the better-supported of three live explanations rather than
-the demonstrated one.
+Rates, for contrast: 0.8950 in period 1, 0.8975 in period 2. Both fine.
+
+That is the whole chain, and each link is now measured:
+
+1. **The same estimator reads period 1 correctly and period 2 over-confidently** — 0.8993
+   against 0.8807. The only thing that differs between the two is that period 2 starts
+   from an *evolved* network, which the two-wave training population does not contain
+   (`docs/MULTIWAVE.md`).
+2. **The product is worse than either factor** — 0.8746, below even the bad one.
+   Multiplying a calibrated posterior by a slightly over-confident one yields something
+   tighter than both, so the same absolute bias costs more coverage.
+3. **Rates escape** because each comes from a single factor and nothing compounds.
+4. **The native estimator is immune by construction**, at 0.8957: its training panels have
+   period 2 starting from an evolved network, so what is out of distribution for the
+   product is in distribution for it.
+
+## This resolves the branch the pre-registration called inconclusive
+
+The pre-registration could not separate "the product construction is lossy" from "the
+native saw twice the period transitions", and nominated a second native at 5 × 10⁶ panels
+to bracket it. **That run is not needed, and would not have settled it anyway.**
+
+Not needed, because periods 1 and 2 are read by the *same estimator with the same training
+budget*, and one is calibrated while the other is not. A training-budget deficit cannot
+explain a difference between two applications of one estimator. The budget account also
+predicts the native's advantage would show up in the rates, where more transitions mean
+more information; it does not — rates are flat at +0.004.
+
+Would not have settled it, because 5 × 10⁶ three-wave panels matches the transition count
+but halves the number of distinct **start networks** against `npe_m6`'s 10⁷. It trades the
+transition confound for a start-count confound, which the pre-registration did not notice.
+
+What remains is a genuine property of the construction: the product inherits the
+miscalibration of its worst factor and compounds it across the shared block. Since that
+compounding is multiplicative in the number of periods, it predicts the deficit should grow
+with panel length — which `docs/PRIORS_M7.md` had already observed independently, `npe_m6`
+falling from 0.885 at three waves to 0.875 at four.
+
+And it is not a defect awaiting a fix. `docs/PRIORS_M7.md` tried to remove the evolved-start
+shift by evolving half the training starts; that repaired the per-period tilt and **broke
+the joint product**, because making the start informative about β is exactly what the
+factorisation forbids. The deficit is the price of a valid product.
+
+### Two corrections to earlier drafts of this section
+
+Recorded because the reasoning swung twice and the record should show it.
+
+The first version of this write-up said the evolved-start shift "predicts exactly what was
+observed". Too strong: the shift documented for `npe_m6` was in **rate and density**, and
+those are among the parameters with no deficit here, while the loss falls on the
+higher-order and covariate effects. The source was identified correctly; the specific
+parameters were not.
+
+The second version then went too far the other way, calling the per-parameter pattern a
+contradiction of the evolved-start account. The per-period measurement above refutes that:
+period 2, the evolved-start period, is exactly the miscalibrated factor. What the first
+version was missing was not the source but the **compounding step** that turns a
+single-factor miscalibration into a shared-block-only deficit.
 
 ## The regression check, which came out weaker than intended
 
@@ -191,10 +243,14 @@ statement is:
 > Reading a three-wave panel as a product of two-wave posteriors costs about **1.6
 > percentage points of 90 % coverage** against an estimator trained natively on three
 > waves, with posteriors about 2 % narrower — mild over-confidence rather than lost
-> precision. The deficit is not an artefact of the product sampler. It is consistent with
-> the documented evolved-start distribution shift, which a native estimator does not have,
-> and which `docs/PRIORS_M7.md` shows cannot be removed from the training population
-> without breaking the factorisation itself.
+> precision. The cost falls **entirely on the shared effects** and not at all on the
+> per-period rates, and it is not an artefact of the sampler. Its mechanism is measured:
+> the later period conditions on an evolved start absent from the two-wave training
+> population, so its factor is over-confident (β coverage 0.881 against period 1's 0.899),
+> and the product inherits and compounds that, landing at 0.875 — below either factor.
+> Because the compounding is multiplicative in the number of periods, the cost grows with
+> panel length. It cannot be trained away: `docs/PRIORS_M7.md` shows that removing the
+> evolved-start shift from the population breaks the factorisation itself.
 
 And the practical recommendation is unchanged, because it never rested on the product being
 free: if you have a three-wave panel and a three-wave estimator, use the native one. The

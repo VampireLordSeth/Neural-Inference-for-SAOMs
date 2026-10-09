@@ -141,10 +141,19 @@ three-wave panel into two periods costs nothing measurable here, not that it gai
 > budget, both read on one shared set of 400 panels. **The product loses by 0.0156 of 90 %
 > coverage (paired se 0.0046)** while being 2 % sharper, which is mild over-confidence. It
 > is not the sampler: the gap is flat across ESS quartiles and grows slightly when the
-> 2.8 % of panels that fell back to Metropolis are dropped. The best-supported explanation
-> is the evolved-start shift described below, which a natively three-wave estimator does
-> not suffer from, and which `docs/PRIORS_M7.md` shows cannot be trained away without
-> breaking the factorisation.
+> 2.8 % of panels that fell back to Metropolis are dropped.
+>
+> The mechanism is the evolved-start shift described below, and it is now measured rather
+> than inferred. The cost falls **entirely on the shared effects** (−0.0211) and not at all
+> on the per-period rates (+0.0037). Per-period calibration on the same panels gives β
+> coverage of **0.8993 in period 1** (population start) against **0.8807 in period 2**
+> (evolved start) — the same estimator, the same budget, differing only in what it
+> conditions on. Their product lands at **0.8746**, below either factor, because
+> multiplying a calibrated posterior by an over-confident one gives something tighter than
+> both. Rates escape because each comes from a single factor. A native three-wave estimator
+> is immune by construction and sits at 0.8957. Since the compounding is multiplicative in
+> the number of periods, the cost grows with panel length, which is the independent
+> four-wave degradation `docs/PRIORS_M7.md` reports.
 
 ### Calibration
 

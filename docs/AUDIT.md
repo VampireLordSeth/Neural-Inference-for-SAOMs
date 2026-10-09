@@ -111,13 +111,23 @@ against `npe_m6`'s product on one shared set of 400 panels (`sbc_multiwave.py --
 **Result (2026-10-09): the product loses** — 0.8792 against 0.8947 mean 90 % coverage, a
 paired difference of −0.0156 (se 0.0046), while being 2 % *sharper*, so over-confident
 rather than noisy. Per-panel ESS, now saved, rules out the sampler: the gap is flat across
-ESS quartiles and widens slightly when the 2.8 % Metropolis fallbacks are dropped. By the
-criteria fixed before the run this is formally the *inconclusive* branch, since the native
-estimator saw twice the period transitions — but the evolved-start shift documented in
-`docs/MULTIWAVE.md` predicts exactly this, was recorded long before the comparison, and has
-nothing to do with budget. So the finding in this section stands and is now quantified: the
-claim was not merely unsupported, it was wrong in the direction that flattered the method,
-making this the third instance of that pattern.
+ESS quartiles and widens slightly when the 2.8 % Metropolis fallbacks are dropped.
+
+The pre-registration called this branch *inconclusive*, because the native estimator saw
+twice the period transitions, and nominated a further run to bracket it. **That turned out
+to be unnecessary.** The deficit falls entirely on the shared effects (−0.0211, se 0.0054)
+and not at all on the per-period rates (+0.0037, se 0.0082), and per-period calibration
+shows why: the *same estimator at the same budget* covers β at 0.8993 in period 1 and
+0.8807 in period 2, the difference being that period 2 starts from an evolved network. A
+budget deficit cannot explain a gap between two applications of one estimator, and it would
+have shown up in the rates. The product then compounds its worse factor, landing at 0.8746,
+below either.
+
+So the finding in this section stands and is now quantified and explained: the claim was not
+merely unsupported, it was wrong in the direction that flattered the method, making this the
+third instance of that pattern. Also worth recording against this audit's own method — the
+remedy proposed here was doubly wrong, since 5 × 10⁶ three-wave panels matches transitions
+only by halving the distinct start networks, trading one confound for another.
 
 Note what the §1 finding and this one have in common: both are cases where a comparison was
 made against the wrong baseline, and in both the error flattered the method.
