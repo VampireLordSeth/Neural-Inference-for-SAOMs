@@ -24,7 +24,7 @@ import pytest
 from saomsim import Model, rate_statistic, statistics
 
 HERE = Path(__file__).parent
-FILES = ["s501.csv", "s502.csv", "s50_covariates.csv", "rsiena_targets.json"]
+FILES = ["s501.csv", "s502.csv", "s50_covariates.csv", "s50_dyad.csv", "rsiena_targets.json"]
 
 # saomsim effect spec -> label used in the JSON
 EFFECTS = [
@@ -35,7 +35,14 @@ EFFECTS = [
     (("altX", "alc"), "altX(alc)"),
     (("egoX", "alc"), "egoX(alc)"),
     (("sameX", "smk"), "sameX(smk)"),
+    (("dyadX", "dist"), "X(dist)"),
 ]
+
+
+def _covs(cov):
+    """The covariates as RSiena used them: alc centred, smk raw, the dyadic |alc_i - alc_j| raw."""
+    return {"alc": cov["alc_centred"], "smk": cov["smk_raw"],
+            "dist": np.loadtxt(HERE / "s50_dyad.csv", delimiter=",")}
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +76,7 @@ def test_rate_target_matches_rsiena(s50):
 @pytest.mark.parametrize(("effect", "label"), EFFECTS, ids=[lbl for _, lbl in EFFECTS])
 def test_effect_target_matches_rsiena(s50, effect, label):
     x1, x2, cov, targets = s50
-    model = Model([effect], {"alc": cov["alc_centred"], "smk": cov["smk_raw"]})
+    model = Model([effect], _covs(cov))
     ours = statistics(x2[None], model)[0, 0]
     assert ours == pytest.approx(targets["targets"][label], abs=1e-9), (
         f"{label}: saomsim {ours} vs RSiena {targets['targets'][label]}"
@@ -78,7 +85,7 @@ def test_effect_target_matches_rsiena(s50, effect, label):
 
 def test_all_effects_jointly_match_rsiena(s50):
     x1, x2, cov, targets = s50
-    model = Model([e for e, _ in EFFECTS], {"alc": cov["alc_centred"], "smk": cov["smk_raw"]})
+    model = Model([e for e, _ in EFFECTS], _covs(cov))
     ours = statistics(x2[None], model)[0]
     expect = np.array([targets["targets"][lbl] for _, lbl in EFFECTS])
     np.testing.assert_allclose(ours, expect, atol=1e-9)

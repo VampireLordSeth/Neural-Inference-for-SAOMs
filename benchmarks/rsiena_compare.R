@@ -36,7 +36,12 @@ smk_raw <- s50s[, 1]   # smoking, wave 1 (1..3)
 net <- sienaDependent(array(c(x1, x2), dim = c(50, 50, 2)))
 alc <- coCovar(alc_raw)            # centred = TRUE (default)
 smk <- coCovar(smk_raw)
-dat <- sienaDataCreate(net, alc, smk)
+# a dyadic covariate for the X effect: |alc_i - alc_j|, not centred, so the exported matrix
+# is exactly what RSiena used (saomsim's dyadX takes the matrix as given)
+dist_raw <- abs(outer(alc_raw, alc_raw, "-"))
+diag(dist_raw) <- 0
+dist <- coDyadCovar(dist_raw, centered = FALSE)
+dat <- sienaDataCreate(net, alc, smk, dist)
 
 # the centred vector RSiena actually uses: raw minus the mean it stored
 alc_centred <- alc_raw - mean(alc_raw)
@@ -47,6 +52,7 @@ eff <- getEffects(dat)                       # rate, density, recip by default
 eff <- includeEffects(eff, transTrip, cycle3)
 eff <- includeEffects(eff, altX, egoX, interaction1 = "alc")
 eff <- includeEffects(eff, sameX, interaction1 = "smk")
+eff <- includeEffects(eff, X, interaction1 = "dist")
 
 inc <- as.data.frame(eff)[eff$include, ]
 labels <- ifelse(inc$interaction1 == "", inc$shortName,
@@ -67,6 +73,7 @@ names(targets) <- labels
 # ---- write ------------------------------------------------------------------
 write.table(x1, file.path(out_dir, "s501.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
 write.table(x2, file.path(out_dir, "s502.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
+write.table(dist_raw, file.path(out_dir, "s50_dyad.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
 write.table(
   data.frame(alc_raw = alc_raw, alc_centred = alc_centred,
              smk_raw = smk_raw, smk_centred = smk_centred),
@@ -81,7 +88,8 @@ result <- list(
   targets = as.list(targets),
   notes = c(
     "targets are RSiena's actor-summed statistics of wave 2; rate target = tie changes",
-    "altX/egoX use the centred covariate; sameX is centring-invariant"
+    "altX/egoX use the centred covariate; sameX is centring-invariant",
+    "X(dist) is the dyadic covariate effect on |alc_i - alc_j|, uncentred (s50_dyad.csv)"
   )
 )
 write_json(result, file.path(out_dir, "rsiena_targets.json"), auto_unbox = TRUE,

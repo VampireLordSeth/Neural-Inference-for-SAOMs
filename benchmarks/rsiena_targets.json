@@ -9,9 +9,10 @@
     "recip": 70,
     "transTrip": 88,
     "cycle3": 28,
+    "X(dist)": 97,
     "altX(alc)": -4.07999999999999,
     "egoX(alc)": 2.92000000000002,
     "sameX(smk)": 83
   },
-  "notes": ["targets are RSiena's actor-summed statistics of wave 2; rate target = tie changes", "altX/egoX use the centred covariate; sameX is centring-invariant"]
+  "notes": ["targets are RSiena's actor-summed statistics of wave 2; rate target = tie changes", "altX/egoX use the centred covariate; sameX is centring-invariant", "X(dist) is the dyadic covariate effect on |alc_i - alc_j|, uncentred (s50_dyad.csv)"]
 }
