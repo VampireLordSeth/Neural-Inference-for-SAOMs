@@ -338,7 +338,7 @@ def main_gof(argv=None):
     )
     check_n(a.posterior, n)
     phi, info = combine(post, views, 1, draws=max(4000, a.B), proposal=a.proposal, seed=a.seed)
-    print(f"  posterior by {info['method']}, {a.draws} draws, {info['ess']:.0f} effective\n")
+    print(f"  posterior by {info['method']}, {len(phi)} draws, {info['ess']:.0f} effective\n")
 
     v = np.loadtxt(a.v, delimiter=",", ndmin=1)
     g = np.loadtxt(a.g, delimiter=",", ndmin=1)
