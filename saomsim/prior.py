@@ -119,7 +119,7 @@ def summary_names(model: Model, extra: bool = True) -> list[str]:
 
 COUNT_SUMMARIES = {"changes", "isolates", "mutual_dyads"}
 COUNT_EFFECTS = {"density", "recip", "transTrip", "cycle3", "sameX"}
-SIGNED_EFFECTS = {"altX", "egoX"}
+SIGNED_EFFECTS = {"altX", "egoX", "dyadX"}
 
 
 def transform_summaries(S: np.ndarray, names: list, model: Model) -> np.ndarray:

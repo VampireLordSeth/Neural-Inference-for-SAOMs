@@ -14,10 +14,10 @@ import numpy as np
 from .effects import Effect, as_effect
 
 
-def _cov(covariates, name):
+def _cov(covariates, name, dyadic: bool = False):
     v = np.asarray(covariates[name], dtype=float)
-    if v.ndim != 1:
-        raise ValueError("reference functions take a single (n,) covariate vector")
+    if v.ndim != (2 if dyadic else 1):
+        raise ValueError("reference functions take a single (n,) covariate vector, (n, n) for a dyadic one")
     return v
 
 
@@ -46,6 +46,10 @@ def actor_statistic(x: np.ndarray, i: int, effect, covariates: dict | None = Non
         for j in range(n):
             d += x[i, j]
         s = min(d, float(e.parameter))
+    elif e.kind == "dyadX":
+        w = _cov(covariates, e.covariate, dyadic=True)
+        for j in range(n):
+            s += x[i, j] * w[i, j]
     else:
         v = _cov(covariates, e.covariate)
         if e.kind == "sameX":

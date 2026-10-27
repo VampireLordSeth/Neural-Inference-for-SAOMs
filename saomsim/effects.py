@@ -45,7 +45,10 @@ STRUCTURAL = ("density", "recip", "transTrip", "cycle3")
 # is how RSiena represents a questionnaire that caps nominations (docs/GOF_RESULTS.md
 # shows the canonical effect set cannot reproduce such a degree distribution without it).
 PARAMETRIC = ("outTrunc",)
-COVARIATE = ("sameX", "altX", "egoX")
+# dyadX(w) takes a dyadic covariate w_ij, shape (n, n) or (B, n, n): statistic sum_ij x_ij w_ij,
+# RSiena's X effect for a dyadic covariate (a distance, a prior relation).
+COVARIATE = ("sameX", "altX", "egoX", "dyadX")
+DYADIC = ("dyadX",)
 KINDS = STRUCTURAL + PARAMETRIC + COVARIATE
 
 
@@ -94,7 +97,8 @@ class Model:
     """A list of effects plus the covariates they refer to.
 
     ``covariates`` maps name -> array of shape ``(n,)`` (shared by every chain)
-    or ``(B, n)`` (one covariate vector per chain).
+    or ``(B, n)`` (one covariate vector per chain); a dyadic covariate is ``(n, n)``
+    or ``(B, n, n)``.
     """
 
     def __init__(self, effects, covariates: dict | None = None):
@@ -103,6 +107,11 @@ class Model:
         for e in self.effects:
             if e.covariate is not None and e.covariate not in self.covariates:
                 raise KeyError(f"effect {e.label} refers to missing covariate {e.covariate!r}")
+            if e.kind in DYADIC:
+                v = self.covariates[e.covariate]
+                if v.ndim not in (2, 3) or v.shape[-1] != v.shape[-2]:
+                    raise ValueError(f"effect {e.label} needs a square dyadic covariate (n, n) or (B, n, n), "
+                                     f"got shape {v.shape}")
         self._device_cov: dict = {}  # (backend name, device, covariate) -> device array
 
     @property
@@ -125,15 +134,16 @@ class Model:
         return frozenset(out)
 
     # ------------------------------------------------------------------ helpers
-    def _cov(self, name: str, B: int, backend=NUMPY):
-        """Covariate as a ``(B, n)`` array on ``backend`` (cached per device)."""
+    def _cov(self, name: str, B: int, backend=NUMPY, dyadic: bool = False):
+        """Covariate as a ``(B, n)`` array on ``backend`` (cached per device); ``(B, n, n)`` for
+        a dyadic one."""
         key = (backend.name, str(backend.device), name)
         v = self._device_cov.get(key)
         if v is None:
             v = backend.covariate(self.covariates[name])
             self._device_cov[key] = v
-        if v.ndim == 1:
-            return backend.broadcast_to(v, (B, v.shape[0]))
+        if v.ndim == (2 if dyadic else 1):
+            return backend.broadcast_to(v, (B, *v.shape))
         if v.shape[0] != B:
             raise ValueError(f"covariate {name!r} has batch {v.shape[0]}, expected {B}")
         return v
@@ -164,6 +174,8 @@ class Model:
                 # torch accepts axis= as an alias for dim=, so this is backend-agnostic
                 deg = rows.out_row.sum(axis=-1)[:, None]
                 out[:, :, k] = backend.as_float((deg - rows.out_row) < e.parameter)
+            elif e.kind == "dyadX":
+                out[:, :, k] = self._cov(e.covariate, B, backend, dyadic=True)[arangeB, actor, :]
             else:
                 v = self._cov(e.covariate, B, backend)
                 if e.kind == "sameX":
@@ -214,6 +226,8 @@ class Model:
                 out[:, k] = np.einsum("bij,bji->b", XX, Xf) / 3.0
             elif e.kind == "outTrunc":
                 out[:, k] = np.minimum(Xf.sum(axis=2), e.parameter).sum(axis=1)
+            elif e.kind == "dyadX":
+                out[:, k] = (Xf * self._cov(e.covariate, B, dyadic=True)).sum(axis=(1, 2))
             else:
                 v = self._cov(e.covariate, B)
                 if e.kind == "sameX":

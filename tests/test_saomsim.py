@@ -36,6 +36,7 @@ ALL_EFFECTS = [
     ("sameX", "grp"),
     ("altX", "val"),
     ("egoX", "val"),
+    ("dyadX", "dist"),
 ]
 
 
@@ -44,7 +45,9 @@ def effect_id(e):
 
 
 def make_covs(n, rng):
-    return {"grp": rng.integers(0, 3, size=n).astype(float), "val": rng.normal(size=n)}
+    w = rng.normal(size=(n, n))
+    np.fill_diagonal(w, 0.0)
+    return {"grp": rng.integers(0, 3, size=n).astype(float), "val": rng.normal(size=n), "dist": w}
 
 
 def make_model(effects=ALL_EFFECTS, n=10, rng=None):
@@ -157,7 +160,7 @@ def test_effect_validation():
         Model([("sameX", "missing")], {"grp": np.zeros(4)})
     # Pinned so that adding an effect is a deliberate act rather than a side effect.
     assert set(KINDS) == {
-        "density", "recip", "transTrip", "cycle3", "outTrunc", "sameX", "altX", "egoX"
+        "density", "recip", "transTrip", "cycle3", "outTrunc", "sameX", "altX", "egoX", "dyadX"
     }
 
 
@@ -202,6 +205,7 @@ def test_model_labels_and_needs():
         "sameX(grp)",
         "altX(val)",
         "egoX(val)",
+        "dyadX(dist)",
     ]
     assert m.needs == {"two_path", "shared_out", "back_path"}
     assert Model(["density", "recip"]).needs == frozenset()
