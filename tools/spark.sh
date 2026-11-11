@@ -38,7 +38,8 @@ PY="${SPARK_PY:-spark-env/bin/python}" # likewise
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10)
 
 die() { echo "spark.sh: $*" >&2; exit 1; }
-on() { local node=$1; shift; "${SSH[@]}" "$node" "cd ~/$REPO && $*"; }
+# -n: ssh must not read stdin, or it swallows the job body that `launch` is handed there
+on() { local node=$1; shift; "${SSH[@]}" -n "$node" "cd ~/$REPO && $*"; }
 
 # names of the jobs still running on a node, one per line
 alive() {
@@ -77,7 +78,8 @@ cmd_status() {
 
 # launch NODE NAME AFTER  -- job body on stdin
 launch() {
-  local node=$1 name=$2 after=$3 busy
+  local node=$1 name=$2 after=$3 busy body
+  body=$(cat)
   busy=$(alive "$node")
   if grep -qx "$name" <<< "$busy"; then die "$name is already running on $node"; fi
   if [ -n "$after" ]; then
@@ -94,7 +96,8 @@ launch() {
       echo "while kill -0 \"\$(cat data/$after.pid)\" 2>/dev/null; do sleep 60; done"
     fi
     echo "echo \"=== $name START \$(date) on \$(hostname) at \$(git rev-parse --short=12 HEAD)\""
-    cat
+    printf '%s
+' "$body"
     echo "echo \"=== $name EXIT \$? \$(date)\""
   } | "${SSH[@]}" "$node" "mkdir -p ~/$REPO/data && cat > ~/$REPO/data/$name.sh"
   on "$node" "[ -f data/$name.log ] && mv data/$name.log data/$name.log.prev
@@ -144,7 +147,7 @@ cmd_collect() {
       die "gen_$name is still running on $node"
     fi
     # relayed through this machine: the nodes need no credentials for each other
-    "${SSH[@]}" "$node" "cd ~/$REPO && tar -cf - data/${name}_shards" |
+    "${SSH[@]}" -n "$node" "cd ~/$REPO && tar -cf - data/${name}_shards" |
       "${SSH[@]}" "$to" "cd ~/$REPO && tar -xf -"
   done
   on "$to" "ls data/${name}_shards/*.npz | wc -l | sed 's/\$/ shards on $to/'"
