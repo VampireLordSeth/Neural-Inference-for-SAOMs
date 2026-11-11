@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table  # noqa: E402
 from benchmarks.m2 import glasgow_as_m2, s50_as_m2  # noqa: E402
+from benchmarks.provenance import stamp  # noqa: E402
 from saomsim.population import (  # noqa: E402
     load_m2_summaries,
     summary_subset,
@@ -136,6 +137,7 @@ def main():
         f"{out}_training.npz",
         training_loss=np.array(summ["training_loss"]),
         validation_loss=np.array(summ["validation_loss"]),
+        **{k: np.array(v) for k, v in stamp().items()},
     )
     posterior = inference.build_posterior(estimator)
     torch.save(posterior, f"{out}.pt")

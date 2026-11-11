@@ -22,6 +22,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.coverage import coverage_table, sbc_ranks_chunked  # noqa: E402
+from benchmarks.provenance import stamp  # noqa: E402
 from saomsim.population_coev import (  # noqa: E402
     CoevTrainingSet,
     coev_prior,
@@ -94,6 +95,7 @@ def cmd_generate(a):
     dt = time.perf_counter() - t0
     print(f"simulated {a.N} panels in {dt:.1f}s ({a.N / dt:,.0f} panels/s)")
     ts.meta["seed"] = a.seed
+    ts.meta.update(stamp())
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     ts.save(a.out)
     print(f"saved {a.out} ({Path(a.out).stat().st_size / 1e6:,.0f} MB)")
@@ -163,6 +165,7 @@ def cmd_train(a):
         f"{a.out}_training.npz",
         training_loss=np.array(summ["training_loss"]),
         validation_loss=np.array(summ["validation_loss"]),
+        **{k: np.array(v) for k, v in stamp().items()},
     )
     print(f"wrote {a.out}.pt")
 

@@ -13,6 +13,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.m2 import m2_prior  # noqa: E402
+from benchmarks.provenance import stamp  # noqa: E402
 from saomsim.population import generate_m2  # noqa: E402
 
 
@@ -74,7 +75,7 @@ def main():
     )
     dt = time.perf_counter() - t0
     print(f"simulated {args.N} panels in {dt:.1f}s ({args.N / dt:,.0f} panels/s)")
-    ts.meta.update({"seed": args.seed, "dtype": args.dtype, "backend": str(backend)})
+    ts.meta.update({"seed": args.seed, "dtype": args.dtype, "backend": str(backend), **stamp()})
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.perf_counter()
