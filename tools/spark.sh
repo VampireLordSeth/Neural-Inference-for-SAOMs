@@ -7,7 +7,8 @@
 #                                                 start COMMAND detached on NODE as job NAME
 #   tools/spark.sh shards NAME FIRST_SEED COUNT 'GENERATOR COMMAND'
 #                                                 COUNT shards, seeds dealt round-robin to the nodes
-#   tools/spark.sh collect NAME NODE              bring every node's shards of NAME to NODE
+#   tools/spark.sh collect NAME NODE              bring every node's shards of NAME to NODE,
+#                                                 over the direct link when it has addresses
 #
 # Inside COMMAND, $P is the node's Python. In a generator command {seed} and {out} are
 # filled in per shard. Quote commands with single quotes so $P expands on the node:
@@ -45,6 +46,11 @@ on() { local node=$1; shift; "${SSH[@]}" -n "$node" "cd ~/$REPO && $*"; }
 alive() {
   on "$1" 'for f in data/*.pid; do [ -f "$f" ] || continue
              kill -0 "$(cat "$f")" 2>/dev/null && basename "$f" .pid; done; true'
+}
+
+# a node's address on the cable that joins the two Sparks; empty if it has none
+link_ip() {
+  on "$1" "ip -4 -o addr show ${SPARK_LINK_IF:-enp1s0f1np1} 2>/dev/null | awk '{print \$4}' | cut -d/ -f1"
 }
 
 cmd_sync() {
@@ -140,20 +146,32 @@ EOF
 
 cmd_collect() {
   [ $# -eq 2 ] || die "usage: collect NAME NODE"
-  local name=$1 to=$2 node
+  local name=$1 to=$2 node dst_ip src_ip port
+  dst_ip=$(link_ip "$to")
   for node in "${NODES[@]}"; do
     [ "$node" = "$to" ] && continue
     if grep -qx "gen_$name" <<< "$(alive "$node")"; then
       die "gen_$name is still running on $node"
     fi
-    # relayed through this machine: the nodes need no credentials for each other
-    "${SSH[@]}" -n "$node" "cd ~/$REPO && tar -cf - data/${name}_shards" |
-      "${SSH[@]}" "$to" "cd ~/$REPO && tar -xf -"
+    src_ip=$(link_ip "$node")
+    if [ -n "$dst_ip" ] && [ -n "$src_ip" ]; then
+      # straight down the 200 Gb/s cable: a one-shot listener on the link address, so the
+      # nodes still need no credentials for each other
+      port=$((47000 + RANDOM % 1000))
+      "${SSH[@]}" -n "$to" "cd ~/$REPO && nc -l $dst_ip $port | tar -xf -" &
+      sleep 2
+      on "$node" "tar -cf - data/${name}_shards | nc -N $dst_ip $port"
+      wait $!
+    else
+      # no link addresses: relay through this machine
+      "${SSH[@]}" -n "$node" "cd ~/$REPO && tar -cf - data/${name}_shards" |
+        "${SSH[@]}" "$to" "cd ~/$REPO && tar -xf -"
+    fi
   done
   on "$to" "ls data/${name}_shards/*.npz | wc -l | sed 's/\$/ shards on $to/'"
 }
 
 case "${1:-}" in
   sync | status | run | shards | collect) c=$1; shift; "cmd_$c" "$@" ;;
-  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
